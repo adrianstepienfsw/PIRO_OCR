@@ -11,12 +11,12 @@ from matplotlib import cm
 from skimage.transform import hough_line, hough_line_peaks
 
 class photosDict:
-    def __init__(self, path, count):
+    def __init__(self, path, count, first):
         self.dict = [];
-        self.loadPhotos(path, count)
+        self.loadPhotos(path, count, first)
 
-    def loadPhotos(self, path, count):
-        for i in range(1, count+1):
+    def loadPhotos(self, path, count, first):
+        for i in range(first, count+1):
             filePath = Path(path + "/img_" + str(i) + ".jpg")
             print("Loading file: "+str(filePath))
             image = io.imread(filePath)
@@ -92,7 +92,6 @@ def takeRectangleContour(contour, image):
     imageHeight = image.shape[0]
 
     angles = anglesFromContours(contour)
-    print(angles)
     angleDiff = []
     for i in angles:
         diff = abs((i+np.pi/2)-np.pi*round((i+np.pi/2)/np.pi))
@@ -109,6 +108,7 @@ def takeRectangleContour(contour, image):
             contourQuarter.append(3)
 
     newContour = np.zeros(10).reshape(5, 2)
+    bestAnglePoints = []
     for i in range(4):
         points = []
         for ii in range(len(contour)-1):
@@ -119,6 +119,7 @@ def takeRectangleContour(contour, image):
         for ii in points:
             if (bestAngleIndex ==-1) or (angleDiff[bestAngleIndex] > angleDiff[ii]):
                 bestAngleIndex = ii
+        bestAnglePoints.append(bestAngleIndex)
         diff = np.pi/2;
         for ii in points:
             if bestAngleIndex == ii:
@@ -126,14 +127,51 @@ def takeRectangleContour(contour, image):
             else:
                 if diff > (angleDiff[ii]-angleDiff[bestAngleIndex]):
                     diff = angleDiff[ii]-angleDiff[bestAngleIndex]
-        if (1==len(points)) or (diff > np.pi/4):
-            newContour[i] = contour[bestAngleIndex]
+        if (3>len(points)) or (diff > np.pi/4):
+            newContour[i,0] = int(bestAngleIndex)
         else:
-            newContour[i] = contour[bestAngleIndex]
-        print(points)
+            newContour[i,0] = -1
+
+    aproximated = []
+    for i in range(4):
+        if newContour[i,0] == -1:
+            if (newContour[(i+1)%4, 0] != -1) and (newContour[(i-1)%4, 0] != -1):
+                point11 = contour[int(newContour[(i - 1) % 4, 0])]
+                point12 = contour[int(newContour[(i - 1) % 4, 0]+1)]
+                a1 = (point11[1]-point12[1])/(point11[0]-point12[0])
+                b1 = point11[1] - a1 * point11[0]
+
+                point21 = contour[int(newContour[(i + 1) % 4, 0]-1)]
+                point22 = contour[int(newContour[(i + 1) % 4, 0])]
+                a2 = (point21[1]-point22[1])/(point21[0]-point22[0])
+                b2 = point21[1] - a2 * point21[0]
+
+                newContour[i, 0] = (b2-b1)/(a1-a2)
+                newContour[i, 1] = a1*newContour[i, 0]+b1
+
+                if (i == 0) and ((newContour[i, 0] > imageHeight / 2) or (newContour[i, 0] < 0) or (
+                        newContour[i, 1] < imageWidth / 2) or (newContour[i, 0] > imageWidth)):
+                    newContour[i] = contour[bestAnglePoints[0]]
+                elif (i == 1) and ((newContour[i, 0] > imageHeight) or (newContour[i, 0] < imageHeight/2) or (
+                        newContour[i, 1] < imageWidth / 2) or (newContour[i, 0] > imageWidth)):
+                    newContour[i] = contour[bestAnglePoints[1]]
+                elif (i == 2) and ((newContour[i, 0] > imageHeight) or (newContour[i, 0] < imageHeight/2) or (
+                        newContour[i, 1] < 0) or (newContour[i, 0] > imageWidth/2)):
+                    newContour[i] = contour[bestAnglePoints[2]]
+                elif (i == 3) and ((newContour[i, 0] > imageHeight/2) or (newContour[i, 0] < 0) or (
+                        newContour[i, 1] < 0) or (newContour[i, 0] > imageWidth/2)):
+                    newContour[i] = contour[bestAnglePoints[3]]
+                aproximated.append(i)
+
+            else:
+                newContour[i, 0] = bestAnglePoints[i]
+
+
+    for i in range(4):
+        if (newContour[i,0] >= 0) and (i not in aproximated):
+            newContour[i] = contour[int(newContour[i, 0])]
 
     newContour[4] = newContour[0]
-    print(newContour)
     return newContour
 
 
@@ -162,7 +200,6 @@ def detectPaper(image):
     contours = measure.find_contours(binary_local, 0.5)
     contourPolygon = measure.approximate_polygon(contours[0], 50)
     paperContour = takeRectangleContour(contourPolygon, binary_local)
-    print(contourPolygon)
     ax[2].imshow(binary_local)
     for n, contour in enumerate(paperContour):
         ax[2].plot(paperContour[:, 1], paperContour[:, 0], linewidth=2)
@@ -232,7 +269,10 @@ def detectPaper(image):
     plt.show()"""
 
 if __name__ == "__main__":
-    photos = photosDict(sys.argv[1], int(sys.argv[2]))
+    first = 1
+    if sys.argv[3]!='':
+        first = int(sys.argv[3])
+    photos = photosDict(sys.argv[1], int(sys.argv[2]), first)
 
     for i in photos.dict:
         detectPaper(i)
