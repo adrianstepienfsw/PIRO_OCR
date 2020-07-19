@@ -10,61 +10,94 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 from skimage.transform import hough_line, hough_line_peaks
 
-class photosDict:
+
+class PhotosDict:
     def __init__(self, path, count, first):
-        self.dict = [];
-        self.loadPhotos(path, count, first)
+        self.dict = []
+        self.load_photos(path, count, first)
 
-    def loadPhotos(self, path, count, first):
-        for i in range(first, count+1):
-            filePath = Path(path + "/img_" + str(i) + ".jpg")
-            print("Loading file: "+str(filePath))
-            image = io.imread(filePath)
+    def load_photos(self, path, count, first):
+        print_progress(0, count, prefix="Reading images:", suffix="Complete", bar_length=50)
+        for i in range(first, count + 1):
+            file_path = Path(path + "/img_" + str(i) + ".jpg")
+            image = io.imread(file_path)
             self.dict.append(image)
+            print_progress(i, count, prefix="Reading images:", suffix="Complete", bar_length=50)
 
-def anglesFromContours(contour):
-    ret = np.zeros(len(contour)-1)
-    for i in range(len(contour)-1):
+
+# Print iterations progress
+def print_progress(iteration, total, prefix='', suffix='', decimals=1, bar_length=100):
+    """
+    Call in a loop to create terminal progress bar
+    @params:
+        iteration   - Required  : current iteration (Int)
+        total       - Required  : total iterations (Int)
+        prefix      - Optional  : prefix string (Str)
+        suffix      - Optional  : suffix string (Str)
+        decimals    - Optional  : positive number of decimals in percent complete (Int)
+        bar_length  - Optional  : character length of bar (Int)
+    """
+    str_format = "{0:." + str(decimals) + "f}"
+    percents = str_format.format(100 * (iteration / float(total)))
+    filled_length = int(round(bar_length * iteration / float(total)))
+    bar = '█' * filled_length + '-' * (bar_length - filled_length)
+
+    sys.stdout.write('\r%s |%s| %s%s %s' % (prefix, bar, percents, '%', suffix)),
+
+    if iteration == total:
+        sys.stdout.write('\n')
+    sys.stdout.flush()
+
+
+def angles_from_contours(contour):
+    """
+    Calculate corner angle from contours.
+    :param contour: contours to calculate the angle from
+    :return: Angle
+    """
+    ret = np.zeros(len(contour) - 1)
+    for i in range(len(contour) - 1):
         a = 0
         b = 0
-        if i==0:
+        if i == 0:
             a = math.atan2(contour[i + 1, 0] - contour[i, 0], contour[i + 1, 1] - contour[i, 1])
             b = math.atan2(contour[i - 2, 0] - contour[i, 0], contour[i - 2, 1] - contour[i, 1])
         else:
             a = math.atan2(contour[i + 1, 0] - contour[i, 0], contour[i + 1, 1] - contour[i, 1])
             b = math.atan2(contour[i - 1, 0] - contour[i, 0], contour[i - 1, 1] - contour[i, 1])
-        if a<0:
+        if a < 0:
             a = 2 * math.pi - abs(a)
-        if b<0:
+        if b < 0:
             b = 2 * math.pi - abs(b)
 
-        ret[i] = a-b
+        ret[i] = a - b
     return ret
 
-def makeMargin(image, margin):
+
+def make_margin(image, margin):
     for i in range(image.shape[1]):
         for ii in range(image.shape[0]):
-            if (i<margin) or (ii<margin) or (i>image.shape[1]-margin-1) or (ii>image.shape[0]-margin-1):
+            if (i < margin) or (ii < margin) or (i > image.shape[1] - margin - 1) or (ii > image.shape[0] - margin - 1):
                 image[ii, i] = 0
     return image
 
 
-def crossingPoints(image, angles, distances):
+def crossing_points(image, angles, distances):
     x = []
     y = []
 
     for i in range(len(angles)):
-        for ii in range(i+1, len(angles)):
-            ctgT1 = np.tan(np.pi/2-angles[i])
-            ctgT2 = np.tan(np.pi/2-angles[ii])
-            sinT1 = np.sin(angles[i])
-            sinT2 = np.sin(angles[ii])
+        for ii in range(i + 1, len(angles)):
+            ctg_t1 = np.tan(np.pi / 2 - angles[i])
+            ctg_t2 = np.tan(np.pi / 2 - angles[ii])
+            sin_t1 = np.sin(angles[i])
+            sin_t2 = np.sin(angles[ii])
             d1 = distances[i]
             d2 = distances[ii]
-            x.append((d2/sinT2-d1/sinT1)/(ctgT1-ctgT2))
-            y.append(ctgT1*x[len(x)-1]+d1/sinT1)
+            x.append((d2 / sin_t2 - d1 / sin_t1) / (ctg_t1 - ctg_t2))
+            y.append(ctg_t1 * x[len(x) - 1] + d1 / sin_t1)
 
-    for i in range(len(x)-1, -1, -1):
+    for i in range(len(x) - 1, -1, -1):
         if (x[i] >= image.shape[1]) or (y[i] >= image.shape[0]) or (x[i] < 0) or (y[i] < 0):
             """x.pop(i)
             y.pop(i)"""
@@ -72,113 +105,113 @@ def crossingPoints(image, angles, distances):
     print(x)
     print(y)
 
-def takeBiggestRegion(image):
+
+def take_biggest_region(image):
     image = measure.label(image, connectivity=1)
-    regionprops = measure.regionprops(image)
+    region_props = measure.regionprops(image)
 
-    maxArea = 0
-    maxAreaIndex = 0
-    for i in regionprops:
-        if i.area > maxArea:
-            maxArea = i.area
-            maxAreaIndex = i.label
+    max_area = 0
+    max_area_index = 0
+    for i in region_props:
+        if i.area > max_area:
+            max_area = i.area
+            max_area_index = i.label
 
-    image = image == maxAreaIndex
+    image = image == max_area_index
 
     return image
 
-def takeRectangleContour(contour, image):
-    imageWidth = image.shape[1]
-    imageHeight = image.shape[0]
 
-    angles = anglesFromContours(contour)
-    angleDiff = []
+def take_rectangle_contour(contour, image):
+    image_width = image.shape[1]
+    image_height = image.shape[0]
+
+    angles = angles_from_contours(contour)
+    angle_diff = []
     for i in angles:
-        diff = abs((i+np.pi/2)-np.pi*round((i+np.pi/2)/np.pi))
-        angleDiff.append(diff)
-    contourQuarter = []
+        diff = abs((i + np.pi / 2) - np.pi * round((i + np.pi / 2) / np.pi))
+        angle_diff.append(diff)
+    contour_quarter = []
     for i in contour:
-        if (i[0]<imageHeight/2) and (i[1]>imageWidth/2):
-            contourQuarter.append(0)
-        elif (i[0]>imageHeight/2) and (i[1]>imageWidth/2):
-            contourQuarter.append(1)
-        elif (i[0]>imageHeight/2) and (i[1]<imageWidth/2):
-            contourQuarter.append(2)
+        if (i[0] < image_height / 2) and (i[1] > image_width / 2):
+            contour_quarter.append(0)
+        elif (i[0] > image_height / 2) and (i[1] > image_width / 2):
+            contour_quarter.append(1)
+        elif (i[0] > image_height / 2) and (i[1] < image_width / 2):
+            contour_quarter.append(2)
         else:
-            contourQuarter.append(3)
+            contour_quarter.append(3)
 
-    newContour = np.zeros(10).reshape(5, 2)
-    bestAnglePoints = []
+    new_contour = np.zeros(10).reshape(5, 2)
+    best_angle_points = []
     for i in range(4):
         points = []
-        for ii in range(len(contour)-1):
-            if contourQuarter[ii] == i:
+        for ii in range(len(contour) - 1):
+            if contour_quarter[ii] == i:
                 points.append(ii)
 
-        bestAngleIndex = -1
+        best_angle_index = -1
         for ii in points:
-            if (bestAngleIndex ==-1) or (angleDiff[bestAngleIndex] > angleDiff[ii]):
-                bestAngleIndex = ii
-        bestAnglePoints.append(bestAngleIndex)
-        diff = np.pi/2;
+            if (best_angle_index == -1) or (angle_diff[best_angle_index] > angle_diff[ii]):
+                best_angle_index = ii
+        best_angle_points.append(best_angle_index)
+        diff = np.pi / 2
         for ii in points:
-            if bestAngleIndex == ii:
+            if best_angle_index == ii:
                 continue
             else:
-                if diff > (angleDiff[ii]-angleDiff[bestAngleIndex]):
-                    diff = angleDiff[ii]-angleDiff[bestAngleIndex]
-        if (3>len(points)) or (diff > np.pi/4):
-            newContour[i,0] = int(bestAngleIndex)
+                if diff > (angle_diff[ii] - angle_diff[best_angle_index]):
+                    diff = angle_diff[ii] - angle_diff[best_angle_index]
+        if (3 > len(points)) or (diff > np.pi / 4):
+            new_contour[i, 0] = int(best_angle_index)
         else:
-            newContour[i,0] = -1
+            new_contour[i, 0] = -1
 
     aproximated = []
     for i in range(4):
-        if newContour[i,0] == -1:
-            if (newContour[(i+1)%4, 0] != -1) and (newContour[(i-1)%4, 0] != -1):
-                point11 = contour[int(newContour[(i - 1) % 4, 0])]
-                point12 = contour[int(newContour[(i - 1) % 4, 0]+1)]
-                a1 = (point11[1]-point12[1])/(point11[0]-point12[0])
+        if new_contour[i, 0] == -1:
+            if (new_contour[(i + 1) % 4, 0] != -1) and (new_contour[(i - 1) % 4, 0] != -1):
+                point11 = contour[int(new_contour[(i - 1) % 4, 0])]
+                point12 = contour[int(new_contour[(i - 1) % 4, 0] + 1)]
+                a1 = (point11[1] - point12[1]) / (point11[0] - point12[0])
                 b1 = point11[1] - a1 * point11[0]
 
-                point21 = contour[int(newContour[(i + 1) % 4, 0]-1)]
-                point22 = contour[int(newContour[(i + 1) % 4, 0])]
-                a2 = (point21[1]-point22[1])/(point21[0]-point22[0])
+                point21 = contour[int(new_contour[(i + 1) % 4, 0] - 1)]
+                point22 = contour[int(new_contour[(i + 1) % 4, 0])]
+                a2 = (point21[1] - point22[1]) / (point21[0] - point22[0])
                 b2 = point21[1] - a2 * point21[0]
 
-                newContour[i, 0] = (b2-b1)/(a1-a2)
-                newContour[i, 1] = a1*newContour[i, 0]+b1
+                new_contour[i, 0] = (b2 - b1) / (a1 - a2)
+                new_contour[i, 1] = a1 * new_contour[i, 0] + b1
 
-                if (i == 0) and ((newContour[i, 0] > imageHeight / 2) or (newContour[i, 0] < 0) or (
-                        newContour[i, 1] < imageWidth / 2) or (newContour[i, 0] > imageWidth)):
-                    newContour[i] = contour[bestAnglePoints[0]]
-                elif (i == 1) and ((newContour[i, 0] > imageHeight) or (newContour[i, 0] < imageHeight/2) or (
-                        newContour[i, 1] < imageWidth / 2) or (newContour[i, 0] > imageWidth)):
-                    newContour[i] = contour[bestAnglePoints[1]]
-                elif (i == 2) and ((newContour[i, 0] > imageHeight) or (newContour[i, 0] < imageHeight/2) or (
-                        newContour[i, 1] < 0) or (newContour[i, 0] > imageWidth/2)):
-                    newContour[i] = contour[bestAnglePoints[2]]
-                elif (i == 3) and ((newContour[i, 0] > imageHeight/2) or (newContour[i, 0] < 0) or (
-                        newContour[i, 1] < 0) or (newContour[i, 0] > imageWidth/2)):
-                    newContour[i] = contour[bestAnglePoints[3]]
+                if (i == 0) and ((new_contour[i, 0] > image_height / 2) or (new_contour[i, 0] < 0) or (
+                        new_contour[i, 1] < image_width / 2) or (new_contour[i, 0] > image_width)):
+                    new_contour[i] = contour[best_angle_points[0]]
+                elif (i == 1) and ((new_contour[i, 0] > image_height) or (new_contour[i, 0] < image_height / 2) or (
+                        new_contour[i, 1] < image_width / 2) or (new_contour[i, 0] > image_width)):
+                    new_contour[i] = contour[best_angle_points[1]]
+                elif (i == 2) and ((new_contour[i, 0] > image_height) or (new_contour[i, 0] < image_height / 2) or (
+                        new_contour[i, 1] < 0) or (new_contour[i, 0] > image_width / 2)):
+                    new_contour[i] = contour[best_angle_points[2]]
+                elif (i == 3) and ((new_contour[i, 0] > image_height / 2) or (new_contour[i, 0] < 0) or (
+                        new_contour[i, 1] < 0) or (new_contour[i, 0] > image_width / 2)):
+                    new_contour[i] = contour[best_angle_points[3]]
                 aproximated.append(i)
 
             else:
-                newContour[i, 0] = bestAnglePoints[i]
-
+                new_contour[i, 0] = best_angle_points[i]
 
     for i in range(4):
-        if (newContour[i,0] >= 0) and (i not in aproximated):
-            newContour[i] = contour[int(newContour[i, 0])]
+        if (new_contour[i, 0] >= 0) and (i not in aproximated):
+            new_contour[i] = contour[int(new_contour[i, 0])]
 
-    newContour[4] = newContour[0]
-    return newContour
+    new_contour[4] = new_contour[0]
+    return new_contour
 
 
-
-def detectPaper(image):
+def detect_paper(image):
     # Generating figure 1
-    fig, axes = plt.subplots(1, 3, figsize=(15, 6))
+    fig, axes = plt.subplots(1, 3, figsize=(14, 6))
     ax = axes.ravel()
 
     grayscale = color.rgb2gray(image)
@@ -190,24 +223,24 @@ def detectPaper(image):
     ax[1].imshow(binary_local)
 
     binary_local = morphology.opening(binary_local, morphology.rectangle(5, 5))
-
     binary_local = morphology.closing(binary_local, morphology.rectangle(30, 30))
 
-    binary_local = takeBiggestRegion(binary_local)
+    binary_local = take_biggest_region(binary_local)
 
-    binary_local = makeMargin(binary_local, 3)
+    binary_local = make_margin(binary_local, 3)
 
     contours = measure.find_contours(binary_local, 0.5)
-    contourPolygon = measure.approximate_polygon(contours[0], 50)
-    paperContour = takeRectangleContour(contourPolygon, binary_local)
+    contour_polygon = measure.approximate_polygon(contours[0], 50)
+    paper_contour = take_rectangle_contour(contour_polygon, binary_local)
     ax[2].imshow(binary_local)
-    for n, contour in enumerate(paperContour):
-        ax[2].plot(paperContour[:, 1], paperContour[:, 0], linewidth=2)
-
-
+    for n, contour in enumerate(paper_contour):
+        ax[2].plot(paper_contour[:, 1], paper_contour[:, 0], linewidth=2)
 
     plt.tight_layout()
-    plt.show()
+    # plt.show()
+
+    # Return necessary information for next steps
+    return paper_contour, (fig, axes)
 
     """edges1 = feature.canny(grayscale, sigma=1)
 
@@ -215,7 +248,7 @@ def detectPaper(image):
     h, theta, d = hough_line(edges1, theta=tested_angles)
     lines = hough_line_peaks(h, theta, d)
     print(lines)
-    crossPoints = crossingPoints(grayscale, lines[1], lines[2])
+    crossPoints = crossing_points(grayscale, lines[1], lines[2])
 
     # Generating figure 1
     fig, axes = plt.subplots(1, 3, figsize=(15, 6))
@@ -268,11 +301,87 @@ def detectPaper(image):
     io.imshow(i)
     plt.show()"""
 
+
+def calculate_distance(first_point, second_point):
+    """
+    Calculate distance between two points
+    :param first_point: first point
+    :param second_point: second point
+    :return: distance between two points
+    """
+    return math.sqrt((first_point[0] - second_point[0]) ** 2 + (first_point[1] - second_point[1]) ** 2)
+
+
+def find_closest_corner(image_shape, input_corner):
+    """
+    Finds closest corner in the input image for the input corner
+    :param image_shape: shape of an input image
+    :param countours: location of a calculated corner
+    :return: coordinates of the closest corner
+    """
+    cor_lu = [0, 0]
+    cor_ru = [image_shape[0] - 1, 0]
+    cor_ld = [0, image_shape[1] - 1]
+    cor_rd = [image_shape[0] - 1, image_shape[1] - 1]
+
+    distance = calculate_distance(input_corner, cor_lu)
+    chosen_corner = cor_lu
+
+    new_distance = calculate_distance(input_corner, cor_ru)
+    if new_distance < distance:
+        distance = new_distance
+        chosen_corner = cor_ru
+
+    new_distance = calculate_distance(input_corner, cor_ld)
+    if new_distance < distance:
+        distance = new_distance
+        chosen_corner = cor_ld
+
+    new_distance = calculate_distance(input_corner, cor_rd)
+    if new_distance < distance:
+        chosen_corner = cor_rd
+
+    return chosen_corner
+
+
+def warp_paper(image, contours, plot):
+    """
+    Calculates perspective and unwarps paper.
+    :param image: base image on which transformation will be used
+    :param countours: calculated contours of a sheet of paper
+    :param plot: (fig, axes) touple used to manipulate plotting
+    """
+
+    (fig, axes) = plot
+    (rows, cols, channels) = image.shape
+
+    new_contours = [find_closest_corner((rows, cols), value) for i, value in enumerate(contours)]
+
+    contours = contours[:4]
+    new_contours = new_contours[:4]
+
+    contours = np.array(contours)
+    new_contours = np.array(new_contours)
+
+    contours[:, [0, 1]] = contours[:, [1, 0]]
+    new_contours[:, [0, 1]] = new_contours[:, [1, 0]]
+
+    trans = transform.ProjectiveTransform()
+    trans.estimate(new_contours, contours)
+
+    warped_image = transform.warp(image, trans)
+
+    # io.imshow(warped_image)
+    # plt.show()
+
+
 if __name__ == "__main__":
     first = 1
-    if sys.argv[3]!='':
-        first = int(sys.argv[3])
-    photos = photosDict(sys.argv[1], int(sys.argv[2]), first)
+    if len(sys.argv) > 4:
+        if sys.argv[3] != '':
+            first = int(sys.argv[3])
+    photos = PhotosDict(sys.argv[1], int(sys.argv[2]), first)
 
-    for i in photos.dict:
-        detectPaper(i)
+    for image in photos.dict:
+        contours, (fig, axes) = detect_paper(image)
+        warp_paper(image, contours, (fig, axes))
