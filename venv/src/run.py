@@ -1,6 +1,6 @@
 import numpy as np
 from pathlib import Path, PurePath
-from skimage import io
+from skimage import io, util
 from skimage import feature, measure, transform, morphology, color, filters
 from scipy import ndimage
 import math
@@ -211,16 +211,16 @@ def take_rectangle_contour(contour, image):
 
 def detect_paper(image):
     # Generating figure 1
-    fig, axes = plt.subplots(1, 3, figsize=(14, 6))
-    ax = axes.ravel()
+    # fig, axes = plt.subplots(1, 3, figsize=(14, 6))
+    # ax = axes.ravel()
 
     grayscale = color.rgb2gray(image)
-    ax[0].imshow(grayscale)
+    # ax[0].imshow(grayscale)
 
     block_size = 1555
     local_thresh = filters.threshold_local(grayscale, block_size)
     binary_local = grayscale > local_thresh
-    ax[1].imshow(binary_local)
+    # ax[1].imshow(binary_local)
 
     binary_local = morphology.opening(binary_local, morphology.rectangle(5, 5))
     binary_local = morphology.closing(binary_local, morphology.rectangle(30, 30))
@@ -232,15 +232,16 @@ def detect_paper(image):
     contours = measure.find_contours(binary_local, 0.5)
     contour_polygon = measure.approximate_polygon(contours[0], 50)
     paper_contour = take_rectangle_contour(contour_polygon, binary_local)
-    ax[2].imshow(binary_local)
-    for n, contour in enumerate(paper_contour):
-        ax[2].plot(paper_contour[:, 1], paper_contour[:, 0], linewidth=2)
+    # ax[2].imshow(binary_local)
+    # for n, contour in enumerate(paper_contour):
+    #     ax[2].plot(paper_contour[:, 1], paper_contour[:, 0], linewidth=2)
 
-    plt.tight_layout()
+    # plt.tight_layout()
     # plt.show()
 
     # Return necessary information for next steps
-    return paper_contour, (fig, axes)
+    # return paper_contour, (fig, axes)
+    return paper_contour
 
     """edges1 = feature.canny(grayscale, sigma=1)
 
@@ -344,7 +345,7 @@ def find_closest_corner(image_shape, input_corner):
     return chosen_corner
 
 
-def warp_paper(image, contours, plot):
+def warp_paper(image, contours):
     """
     Calculates perspective and unwarps paper.
     :param image: base image on which transformation will be used
@@ -352,7 +353,7 @@ def warp_paper(image, contours, plot):
     :param plot: (fig, axes) touple used to manipulate plotting
     """
 
-    (fig, axes) = plot
+    # (fig, axes) = plot
     (rows, cols, channels) = image.shape
 
     new_contours = [find_closest_corner((rows, cols), value) for i, value in enumerate(contours)]
@@ -374,6 +375,36 @@ def warp_paper(image, contours, plot):
     # io.imshow(warped_image)
     # plt.show()
 
+    return warped_image
+
+
+def remove_paper_noise(image):
+    # (fig, axes) = plot
+    # ax = axes.ravel()
+
+    grayscale = color.rgb2gray(image)
+    thresh = filters.threshold_local(grayscale, 155)
+    binary = grayscale > thresh
+
+    bin = 255 * binary.astype(np.uint8)
+    bin = color.rgb2gray(bin)
+
+    vertical_lines = morphology.closing(bin, morphology.rectangle(71, 1))
+    horizontal_lines = morphology.closing(bin, morphology.rectangle(1, 71))
+
+    # crosses = 0.5 * vertical_lines + 0.5 * horizontal_lines
+    # crosses = crosses > 127
+    # crosses = 255 * crosses.astype(np.uint8)
+    # crosses = color.rgb2gray(crosses)
+
+    # print(crosses)
+    # grayscale_crosses = color.rgb2gray(crosses)
+
+    # io.imshow(vertical_lines)
+    # io.imshow(horizontal_lines)
+    # io.imshow(grayscale_crosses)
+    # plt.show()
+
 
 if __name__ == "__main__":
     first = 1
@@ -383,5 +414,6 @@ if __name__ == "__main__":
     photos = PhotosDict(sys.argv[1], int(sys.argv[2]), first)
 
     for image in photos.dict:
-        contours, (fig, axes) = detect_paper(image)
-        warp_paper(image, contours, (fig, axes))
+        contours = detect_paper(image)
+        warped_image = warp_paper(image, contours)
+        remove_paper_noise(warped_image)
