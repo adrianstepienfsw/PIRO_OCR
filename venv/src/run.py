@@ -18,6 +18,7 @@ class PhotosDict:
 
     def load_photos(self, path, count, first):
         print_progress(0, count, prefix="Reading images:", suffix="Complete", bar_length=50)
+
         for i in range(first, count + 1):
             file_path = Path(path + "/img_" + str(i) + ".jpg")
             image = io.imread(file_path)
@@ -388,22 +389,28 @@ def remove_paper_noise(image):
 
     bin = 255 * binary.astype(np.uint8)
     bin = color.rgb2gray(bin)
+    inverted = util.invert(bin)
 
     vertical_lines = morphology.closing(bin, morphology.rectangle(71, 1))
     horizontal_lines = morphology.closing(bin, morphology.rectangle(1, 71))
 
-    # crosses = 0.5 * vertical_lines + 0.5 * horizontal_lines
-    # crosses = crosses > 127
-    # crosses = 255 * crosses.astype(np.uint8)
-    # crosses = color.rgb2gray(crosses)
+    inverted_crosses = 0.5 * util.invert(vertical_lines) + 0.5 * util.invert(horizontal_lines)
 
-    # print(crosses)
-    # grayscale_crosses = color.rgb2gray(crosses)
+    binary_crosses = inverted_crosses > 120
+    binary_crosses = 255 * binary_crosses.astype(np.uint8)
 
-    # io.imshow(vertical_lines)
-    # io.imshow(horizontal_lines)
-    # io.imshow(grayscale_crosses)
-    # plt.show()
+    no_crosses_inverted = inverted - binary_crosses
+
+    no_crosses_inverted = morphology.closing(no_crosses_inverted, morphology.rectangle(3, 3))
+
+    no_crosses = util.invert(no_crosses_inverted)
+
+    # with np.printoptions(threshold=np.inf, linewidth=2000):
+    #     print(np.array_str(no_crosses_inverted))
+
+    io.imshow(no_crosses)
+    # io.imsave("test_nc.png", no_crosses)
+    plt.show()
 
 
 if __name__ == "__main__":
