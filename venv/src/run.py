@@ -1,7 +1,7 @@
 import numpy as np
 from pathlib import Path, PurePath
 from skimage import io, util
-from skimage import feature, measure, transform, morphology, color, filters
+from skimage import feature, measure, transform, morphology, color, filters, draw
 from scipy import ndimage
 import math
 import sys
@@ -9,6 +9,7 @@ import time
 import matplotlib.pyplot as plt
 from matplotlib import cm
 from skimage.transform import hough_line, hough_line_peaks
+from scipy import ndimage as ndi
 
 
 class PhotosDict:
@@ -387,12 +388,12 @@ def remove_paper_noise(image):
     thresh = filters.threshold_local(grayscale, 155)
     binary = grayscale > thresh
 
-    bin = 255 * binary.astype(np.uint8)
-    bin = color.rgb2gray(bin)
-    inverted = util.invert(bin)
+    binary = 255 * binary.astype(np.uint8)
+    binary = color.rgb2gray(binary)
+    inverted = util.invert(binary)
 
-    vertical_lines = morphology.closing(bin, morphology.rectangle(71, 1))
-    horizontal_lines = morphology.closing(bin, morphology.rectangle(1, 71))
+    vertical_lines = morphology.closing(binary, morphology.rectangle(71, 1))
+    horizontal_lines = morphology.closing(binary, morphology.rectangle(1, 71))
 
     inverted_crosses = 0.5 * util.invert(vertical_lines) + 0.5 * util.invert(horizontal_lines)
 
@@ -408,9 +409,32 @@ def remove_paper_noise(image):
     # with np.printoptions(threshold=np.inf, linewidth=2000):
     #     print(np.array_str(no_crosses_inverted))
 
-    io.imshow(no_crosses)
-    # io.imsave("test_nc.png", no_crosses)
-    plt.show()
+    # io.imshow(no_crosses)
+    # io.imsave("test_grey.png", bin)
+    # io.imsave("test_clean.png", no_crosses)
+    # plt.show()
+
+    return no_crosses
+
+
+def detect_rows(image):
+    filtered_image = filters.gaussian(image, sigma=2)
+    colour = color.gray2rgb(image)
+    inverted = util.invert(image)
+    image_max = ndi.maximum_filter(inverted, size=3, mode='constant')
+
+    row_sum = np.sum(image_max, axis=1)
+    result = np.where(abs(row_sum - np.amax(row_sum)) < 25)
+    print(result[0])
+
+    for res in result[0]:
+        rr, cc = draw.rectangle((res, 0), extent=(5, 1536))
+        colour[rr, cc, 0] = 255
+        colour[rr, cc, 1] = 0
+        colour[rr, cc, 2] = 0
+
+    # io.imshow(colour)
+    # plt.show()
 
 
 if __name__ == "__main__":
@@ -423,4 +447,5 @@ if __name__ == "__main__":
     for image in photos.dict:
         contours = detect_paper(image)
         warped_image = warp_paper(image, contours)
-        remove_paper_noise(warped_image)
+        clean_paper = remove_paper_noise(warped_image)
+        detect_rows(clean_paper)
