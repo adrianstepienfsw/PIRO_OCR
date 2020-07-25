@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 from skimage.transform import hough_line, hough_line_peaks
 from scipy import ndimage as ndi
+from skimage.filters import try_all_threshold
 
 
 class PhotosDict:
@@ -383,57 +384,75 @@ def warp_paper(image, contours):
 def remove_paper_noise(image):
     # (fig, axes) = plot
     # ax = axes.ravel()
+    """fig, axes = plt.subplots(1, 5, figsize=(14, 6))
+    ax = axes.ravel()"""
 
     grayscale = color.rgb2gray(image)
-    thresh = filters.threshold_local(grayscale, 155)
-    binary = grayscale > thresh
+    grayscale = 1-grayscale
+    grayscale = (grayscale*255).astype(np.uint8)
 
-    binary = 255 * binary.astype(np.uint8)
-    binary = color.rgb2gray(binary)
-    inverted = util.invert(binary)
+    vertical_lines = morphology.opening(grayscale, morphology.rectangle(30, 1))
+    horizontal_lines = morphology.opening(grayscale, morphology.rectangle(1, 30))
 
-    vertical_lines = morphology.closing(binary, morphology.rectangle(71, 1))
-    horizontal_lines = morphology.closing(binary, morphology.rectangle(1, 71))
+    lines = vertical_lines * 0.5 + horizontal_lines * 0.5
 
-    inverted_crosses = 0.5 * util.invert(vertical_lines) + 0.5 * util.invert(horizontal_lines)
+    grayscale_without_lines = grayscale - lines
+    threshold = filters.threshold_yen(grayscale_without_lines)
+    binary_without_lines = grayscale_without_lines > threshold
 
-    binary_crosses = inverted_crosses > 120
-    binary_crosses = 255 * binary_crosses.astype(np.uint8)
+    """fig, ax = try_all_threshold(grayscale_without_lines, figsize=(10, 8), verbose=False)
+    plt.show()"""
 
-    no_crosses_inverted = inverted - binary_crosses
+    """ax[0].imshow(grayscale)
+    ax[1].imshow(vertical_lines)
+    ax[2].imshow(horizontal_lines)
+    ax[3].imshow(grayscale_without_lines)
+    ax[4].imshow(binary_without_lines)
+    fig.tight_layout()
+    plt.show()"""
 
-    no_crosses_inverted = morphology.closing(no_crosses_inverted, morphology.rectangle(3, 3))
-
-    no_crosses = util.invert(no_crosses_inverted)
-
-    # with np.printoptions(threshold=np.inf, linewidth=2000):
-    #     print(np.array_str(no_crosses_inverted))
-
-    # io.imshow(no_crosses)
-    # io.imsave("test_grey.png", bin)
-    # io.imsave("test_clean.png", no_crosses)
-    # plt.show()
-
-    return no_crosses
+    return binary_without_lines
 
 
 def detect_rows(image):
-    filtered_image = filters.gaussian(image, sigma=2)
-    colour = color.gray2rgb(image)
-    inverted = util.invert(image)
-    image_max = ndi.maximum_filter(inverted, size=3, mode='constant')
+    fig, axes = plt.subplots(1, 3, figsize=(14, 6))
+    ax = axes.ravel()
 
-    row_sum = np.sum(image_max, axis=1)
-    result = np.where(abs(row_sum - np.amax(row_sum)) < 25)
-    print(result[0])
+    row_sum = np.sum(image, axis=1)
+    result = row_sum > np.mean(row_sum)
 
-    for res in result[0]:
-        rr, cc = draw.rectangle((res, 0), extent=(5, 1536))
-        colour[rr, cc, 0] = 255
-        colour[rr, cc, 1] = 0
-        colour[rr, cc, 2] = 0
+    result = morphology.opening(result, np.ones(7))
 
-    # io.imshow(colour)
+    labeled_result = measure.label(result)
+
+    rows = np.zeros(2*np.max(labeled_result)).reshape(np.max(labeled_result), 2)
+
+    label = 0
+    for i in range(len(labeled_result)):
+        if labeled_result[i] != label:
+            if label == 0:
+                rows[labeled_result[i]-1, 0] = i
+            else:
+                rows[label-1, 1] = i
+        label = labeled_result[i]
+
+    for row in rows:
+        row[0] -= 15
+        row[1] += 15
+
+    for row in rows:
+        ax[0].plot(np.array([10, 10, 1400, 1400, 10]), np.array([row[0], row[1], row[1], row[0], row[0]]), linewidth=2)
+
+    ax[0].imshow(image)
+    ax[1].plot(range(len(row_sum)),row_sum)
+    ax[2].plot(range(len(result)),labeled_result)
+
+
+    fig.tight_layout()
+    plt.show()
+
+
+    # io.imshow(image)
     # plt.show()
 
 
