@@ -415,13 +415,14 @@ def remove_paper_noise(image):
 
 
 def detect_rows(image):
-    fig, axes = plt.subplots(1, 3, figsize=(14, 6))
-    ax = axes.ravel()
+    """fig, axes = plt.subplots(1, 3, figsize=(14, 6))
+    ax = axes.ravel()"""
 
     row_sum = np.sum(image, axis=1)
     result = row_sum > np.mean(row_sum)
 
-    result = morphology.opening(result, np.ones(7))
+    result = morphology.closing(result, np.ones(10))
+    result = morphology.opening(result, np.ones(10))
 
     labeled_result = measure.label(result)
 
@@ -440,21 +441,64 @@ def detect_rows(image):
         row[0] -= 15
         row[1] += 15
 
-    for row in rows:
-        ax[0].plot(np.array([10, 10, 1400, 1400, 10]), np.array([row[0], row[1], row[1], row[0], row[0]]), linewidth=2)
+    """for row in rows:
+        ax[0].plot(np.array([10, 10, 1400, 1400, 10]), np.array([row[0], row[1], row[1], row[0], row[0]]), linewidth=2)"""
 
-    ax[0].imshow(image)
+    """rows_images = []
+    for i in rows:
+        rows_images.append(image[i[0]:i[1],:])"""
+
+    """ax[0].imshow(image)
     ax[1].plot(range(len(row_sum)),row_sum)
     ax[2].plot(range(len(result)),labeled_result)
 
 
     fig.tight_layout()
-    plt.show()
-
+    plt.show()"""
 
     # io.imshow(image)
     # plt.show()
 
+    return rows
+
+def detect_columns(image, rows):
+    """fig, axes = plt.subplots(1, 3, figsize=(14, 6))
+    ax = axes.ravel()"""
+
+    images_rows = []
+
+    for i in rows:
+            images_rows.append(image[int(i[0]):int(i[1]),:])
+
+    rows_results = []
+    for image_row in images_rows:
+        columns_sum = np.sum(image_row, axis=0)
+        result = columns_sum > np.mean(columns_sum)
+        result = morphology.closing(result, np.ones(20))
+        result = morphology.opening(result, np.ones(20))
+        labeled_result = measure.label(result)
+
+        clomuns = np.zeros(2 * np.max(labeled_result)).reshape(np.max(labeled_result), 2)
+
+        label = 0
+        for i in range(len(labeled_result)):
+            if labeled_result[i] != label:
+                if label == 0:
+                    clomuns[labeled_result[i] - 1, 0] = i
+                else:
+                    clomuns[label - 1, 1] = i
+            label = labeled_result[i]
+
+        rows_results.append(clomuns)
+
+    """ax[0].imshow(image)
+    ax[1].plot(range(len(rows_results[0])), rows_results[0])
+    ax[2].plot(range(len(rows_results[1])), rows_results[1])
+
+    fig.tight_layout()
+    plt.show()"""
+
+    return rows_results
 
 if __name__ == "__main__":
     first = 1
@@ -464,7 +508,20 @@ if __name__ == "__main__":
     photos = PhotosDict(sys.argv[1], int(sys.argv[2]), first)
 
     for image in photos.dict:
+        fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+        ax = axes.ravel()
+
         contours = detect_paper(image)
         warped_image = warp_paper(image, contours)
         clean_paper = remove_paper_noise(warped_image)
-        detect_rows(clean_paper)
+        rows = detect_rows(clean_paper)
+        columns = detect_columns(clean_paper, rows)
+
+        ax[0].imshow(clean_paper)
+        for n, row in enumerate(rows):
+            for column in columns[n]:
+                ax[0].plot(np.array([column[0], column[0], column[1], column[1], column[0]]), np.array([row[0], row[1], row[1], row[0], row[0]]), linewidth=2)
+        fig.tight_layout()
+        plt.show()
+
+
