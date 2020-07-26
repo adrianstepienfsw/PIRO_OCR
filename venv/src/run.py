@@ -7,6 +7,7 @@ import math
 import sys
 import time
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 from matplotlib import cm
 from skimage.transform import hough_line, hough_line_peaks
 from scipy import ndimage as ndi
@@ -356,7 +357,6 @@ def warp_paper(image, contours):
     :param plot: (fig, axes) touple used to manipulate plotting
     """
 
-    # (fig, axes) = plot
     (rows, cols, channels) = image.shape
 
     new_contours = [find_closest_corner((rows, cols), value) for i, value in enumerate(contours)]
@@ -388,8 +388,8 @@ def remove_paper_noise(image):
     ax = axes.ravel()"""
 
     grayscale = color.rgb2gray(image)
-    grayscale = 1-grayscale
-    grayscale = (grayscale*255).astype(np.uint8)
+    grayscale = 1 - grayscale
+    grayscale = (grayscale * 255).astype(np.uint8)
 
     vertical_lines = morphology.opening(grayscale, morphology.rectangle(30, 1))
     horizontal_lines = morphology.opening(grayscale, morphology.rectangle(1, 30))
@@ -415,8 +415,8 @@ def remove_paper_noise(image):
 
 
 def detect_rows(image):
-    fig, axes = plt.subplots(1, 3, figsize=(14, 6))
-    ax = axes.ravel()
+    # fig, axes = plt.subplots(1, 3, figsize=(14, 6))
+    # ax = axes.ravel()
 
     row_sum = np.sum(image, axis=1)
     result = row_sum > np.mean(row_sum)
@@ -425,35 +425,98 @@ def detect_rows(image):
 
     labeled_result = measure.label(result)
 
-    rows = np.zeros(2*np.max(labeled_result)).reshape(np.max(labeled_result), 2)
+    rows = np.zeros(2 * np.max(labeled_result)).reshape(np.max(labeled_result), 2)
 
     label = 0
     for i in range(len(labeled_result)):
         if labeled_result[i] != label:
             if label == 0:
-                rows[labeled_result[i]-1, 0] = i
+                rows[labeled_result[i] - 1, 0] = i
             else:
-                rows[label-1, 1] = i
+                rows[label - 1, 1] = i
         label = labeled_result[i]
 
     for row in rows:
         row[0] -= 15
         row[1] += 15
 
-    for row in rows:
-        ax[0].plot(np.array([10, 10, 1400, 1400, 10]), np.array([row[0], row[1], row[1], row[0], row[0]]), linewidth=2)
+    # for row in rows:
+    # ax[0].plot(np.array([10, 10, 1400, 1400, 10]), np.array([row[0], row[1], row[1], row[0], row[0]]), linewidth=2)
 
-    ax[0].imshow(image)
-    ax[1].plot(range(len(row_sum)),row_sum)
-    ax[2].plot(range(len(result)),labeled_result)
-
-
-    fig.tight_layout()
-    plt.show()
-
+    # ax[0].imshow(image)
+    # ax[1].plot(range(len(row_sum)), row_sum)
+    # ax[2].plot(range(len(result)), labeled_result)
+    #
+    # fig.tight_layout()
+    # plt.show()
 
     # io.imshow(image)
     # plt.show()
+
+    return rows
+
+
+def detect_words(paper, word_rows):
+    fig, axes = plt.subplots(1, 2, figsize=(12, 6))
+    ax = axes.ravel()
+
+    result = morphology.closing(paper, morphology.rectangle(5, 5))
+
+    ax[0].imshow(paper)
+    ax[1].imshow(paper)
+
+    for word_row in word_rows:
+        one_row = result[int(word_row[0]):int(word_row[1]), :]
+        labeled_result = measure.label(one_row)
+
+        letter_regions = []
+
+        for region in measure.regionprops(labeled_result):
+            if region.area >= 100:
+                letter_regions.append(region.bbox)
+                minr, minc, maxr, maxc = region.bbox
+                rect = mpatches.Rectangle((minc, minr + int(word_row[0])), maxc - minc, maxr - minr, fill=False,
+                                          edgecolor='blue', linewidth=1)
+                ax[1].add_patch(rect)
+
+        letter_regions = sorted(letter_regions, key=lambda x: x[1])
+
+        words = []
+
+        min_row = letter_regions[0][0]
+        max_row = letter_regions[0][2]
+        word_start = letter_regions[0][1]
+        word_end = letter_regions[0][3]
+
+        for i in range(len(letter_regions) - 1):
+            region_distance = letter_regions[i + 1][1] - letter_regions[i][3]
+
+            if min_row > letter_regions[i][0]:
+                min_row = letter_regions[i][0]
+
+            if max_row < letter_regions[i][2]:
+                max_row = letter_regions[i][2]
+
+            if region_distance > 30:
+                words.append((word_start, letter_regions[i][3] if letter_regions[i][3] > word_end else word_end,
+                              min_row + int(word_row[0]), max_row + int(word_row[0])))
+                word_start = letter_regions[i + 1][1]
+                min_row = letter_regions[i + 1][0]
+                max_row = letter_regions[i + 1][2]
+            else:
+                word_end = letter_regions[i][3] if letter_regions[i][3] > word_end else word_end
+
+            if i == len(letter_regions) - 2:
+                words.append(
+                    (word_start, letter_regions[i + 1][3], min_row + int(word_row[0]), max_row + int(word_row[0])))
+
+        for word in words:
+            minc, maxc, minr, maxr = word
+            rect = mpatches.Rectangle((minc, minr), maxc - minc, maxr - minr, fill=False,
+                                      edgecolor='red', linewidth=1)
+            ax[1].add_patch(rect)
+
+    plt.show()
 
 
 if __name__ == "__main__":
@@ -467,4 +530,5 @@ if __name__ == "__main__":
         contours = detect_paper(image)
         warped_image = warp_paper(image, contours)
         clean_paper = remove_paper_noise(warped_image)
-        detect_rows(clean_paper)
+        rows = detect_rows(clean_paper)
+        detect_words(clean_paper, rows)
