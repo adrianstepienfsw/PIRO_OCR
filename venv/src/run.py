@@ -22,11 +22,18 @@ class PhotosDict:
     def load_photos(self, path, count, first):
         print_progress(0, count, prefix="Reading images:", suffix="Complete", bar_length=50)
 
-        for i in range(first, count + 1):
+        for i in range(first, first + count):
             file_path = Path(path + "/img_" + str(i) + ".jpg")
             image = io.imread(file_path)
             self.dict.append(image)
-            print_progress(i, count, prefix="Reading images:", suffix="Complete", bar_length=50)
+            print_progress(i - first + 1, count, prefix="Reading images:", suffix="Complete", bar_length=50)
+
+
+class RowDescription:
+    def __init__(self, row_number, words, digits):
+        self.row_number = row_number
+        self.words = words
+        self.digits = digits
 
 
 # Print iterations progress
@@ -454,7 +461,9 @@ def detect_words(paper, word_rows):
     ax[0].imshow(paper)
     ax[1].imshow(paper)
 
-    for word_row in word_rows:
+    divided_rows = []
+
+    for i, word_row in enumerate(word_rows):
         one_row = result[int(word_row[0]):int(word_row[1]), :]
         labeled_result = measure.label(one_row)
 
@@ -477,27 +486,37 @@ def detect_words(paper, word_rows):
         word_start = letter_regions[0][1]
         word_end = letter_regions[0][3]
 
-        for i in range(len(letter_regions) - 1):
-            region_distance = letter_regions[i + 1][1] - letter_regions[i][3]
+        digits = []
 
-            if min_row > letter_regions[i][0]:
-                min_row = letter_regions[i][0]
+        for j in range(len(letter_regions) - 1):
+            region_distance = letter_regions[j + 1][1] - letter_regions[j][3]
 
-            if max_row < letter_regions[i][2]:
-                max_row = letter_regions[i][2]
+            # (start column, end column, start row, end row)
+            digits.append((letter_regions[j][1], letter_regions[j][3], letter_regions[j][0] + int(word_row[0]),
+                           letter_regions[j][2] + int(word_row[0])))
+
+            if min_row > letter_regions[j][0]:
+                min_row = letter_regions[j][0]
+
+            if max_row < letter_regions[j][2]:
+                max_row = letter_regions[j][2]
 
             if region_distance > 30:
-                words.append((word_start, letter_regions[i][3] if letter_regions[i][3] > word_end else word_end,
+                words.append((word_start, letter_regions[j][3] if letter_regions[j][3] > word_end else word_end,
                               min_row + int(word_row[0]), max_row + int(word_row[0])))
-                word_start = letter_regions[i + 1][1]
-                min_row = letter_regions[i + 1][0]
-                max_row = letter_regions[i + 1][2]
+                word_start = letter_regions[j + 1][1]
+                min_row = letter_regions[j + 1][0]
+                max_row = letter_regions[j + 1][2]
+                digits = []
             else:
-                word_end = letter_regions[i][3] if letter_regions[i][3] > word_end else word_end
+                word_end = letter_regions[j][3] if letter_regions[j][3] > word_end else word_end
 
-            if i == len(letter_regions) - 2:
+            if j == len(letter_regions) - 2:
                 words.append(
-                    (word_start, letter_regions[i + 1][3], min_row + int(word_row[0]), max_row + int(word_row[0])))
+                    (word_start, letter_regions[j + 1][3], min_row + int(word_row[0]), max_row + int(word_row[0])))
+
+        print(digits)
+        divided_rows.append(RowDescription(i, words, digits))
 
         for word in words:
             minc, maxc, minr, maxr = word
@@ -505,7 +524,9 @@ def detect_words(paper, word_rows):
                                       edgecolor='red', linewidth=1)
             ax[1].add_patch(rect)
 
-    plt.show()
+    # plt.show()
+
+    return divided_rows
 
 
 if __name__ == "__main__":
@@ -520,4 +541,4 @@ if __name__ == "__main__":
         warped_image = warp_paper(image, contours)
         clean_paper = remove_paper_noise(warped_image)
         rows = detect_rows(clean_paper)
-        detect_words(clean_paper, rows)
+        divided_rows = detect_words(clean_paper, rows)
