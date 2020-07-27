@@ -248,21 +248,17 @@ def detect_paper(image):
     return paper_contour
 
     """edges1 = feature.canny(grayscale, sigma=1)
-
     tested_angles = np.linspace(-np.pi / 2, np.pi / 2, 360)
     h, theta, d = hough_line(edges1, theta=tested_angles)
     lines = hough_line_peaks(h, theta, d)
     print(lines)
     crossPoints = crossing_points(grayscale, lines[1], lines[2])
-
     # Generating figure 1
     fig, axes = plt.subplots(1, 3, figsize=(15, 6))
     ax = axes.ravel()
-
     ax[0].imshow(image, cmap=cm.gray)
     ax[0].set_title('Input image')
     ax[0].set_axis_off()
-
     ax[1].imshow(np.log(1 + h),
                  extent=[np.rad2deg(theta[-1]), np.rad2deg(theta[0]), d[-1], d[0]],
                  cmap=cm.gray, aspect=1 / 1.5)
@@ -270,7 +266,6 @@ def detect_paper(image):
     ax[1].set_xlabel('Angles (degrees)')
     ax[1].set_ylabel('Distance (pixels)')
     ax[1].axis('image')
-
     ax[2].imshow(image, cmap=cm.gray)
     origin = np.array((0, image.shape[1]))
     for _, angle, dist in zip(*hough_line_peaks(h, theta, d)):
@@ -280,27 +275,21 @@ def detect_paper(image):
     ax[2].set_ylim((image.shape[0], 0))
     ax[2].set_axis_off()
     ax[2].set_title('Detected lines')
-
     plt.tight_layout()
     plt.show()"""
 
     """fig, (ax1, ax2, ax3) = plt.subplots(nrows=1, ncols=3, figsize=(15, 5),
                                         sharex=True, sharey=True)
-
     ax1.imshow(grayscale, cmap=plt.cm.gray)
     ax1.axis('off')
     ax1.set_title('noisy image', fontsize=20)
-
     ax2.imshow(edges1, cmap=plt.cm.gray)
     ax2.axis('off')
     ax2.set_title(r'Canny filter, $\sigma=1$', fontsize=20)
-
     ax3.imshow(edges2, cmap=plt.cm.gray)
     ax3.axis('off')
     ax3.set_title(r'Canny filter, $\sigma=3$', fontsize=20)
-
     fig.tight_layout()
-
     plt.show()"""
     """plt.figure(figsize=(15, 10))
     io.imshow(i)
@@ -415,19 +404,13 @@ def remove_paper_noise(image):
 
 
 def detect_rows(image):
-<<<<<<< HEAD
-    """fig, axes = plt.subplots(1, 3, figsize=(14, 6))
-    ax = axes.ravel()"""
-=======
     # fig, axes = plt.subplots(1, 3, figsize=(14, 6))
     # ax = axes.ravel()
->>>>>>> word-detection
 
     row_sum = np.sum(image, axis=1)
     result = row_sum > np.mean(row_sum)
 
-    result = morphology.closing(result, np.ones(10))
-    result = morphology.opening(result, np.ones(10))
+    result = morphology.opening(result, np.ones(7))
 
     labeled_result = measure.label(result)
 
@@ -446,18 +429,6 @@ def detect_rows(image):
         row[0] -= 15
         row[1] += 15
 
-<<<<<<< HEAD
-    """for row in rows:
-        ax[0].plot(np.array([10, 10, 1400, 1400, 10]), np.array([row[0], row[1], row[1], row[0], row[0]]), linewidth=2)"""
-
-    """rows_images = []
-    for i in rows:
-        rows_images.append(image[i[0]:i[1],:])"""
-
-    """ax[0].imshow(image)
-    ax[1].plot(range(len(row_sum)),row_sum)
-    ax[2].plot(range(len(result)),labeled_result)
-=======
     # for row in rows:
     # ax[0].plot(np.array([10, 10, 1400, 1400, 10]), np.array([row[0], row[1], row[1], row[0], row[0]]), linewidth=2)
 
@@ -467,18 +438,12 @@ def detect_rows(image):
     #
     # fig.tight_layout()
     # plt.show()
->>>>>>> word-detection
 
     # io.imshow(image)
     # plt.show()
 
-<<<<<<< HEAD
-    fig.tight_layout()
-    plt.show()"""
-=======
     return rows
 
->>>>>>> word-detection
 
 def detect_words(paper, word_rows):
     fig, axes = plt.subplots(1, 2, figsize=(12, 6))
@@ -542,46 +507,6 @@ def detect_words(paper, word_rows):
 
     plt.show()
 
-    return rows
-
-def detect_columns(image, rows):
-    """fig, axes = plt.subplots(1, 3, figsize=(14, 6))
-    ax = axes.ravel()"""
-
-    images_rows = []
-
-    for i in rows:
-            images_rows.append(image[int(i[0]):int(i[1]),:])
-
-    rows_results = []
-    for image_row in images_rows:
-        columns_sum = np.sum(image_row, axis=0)
-        result = columns_sum > np.mean(columns_sum)
-        result = morphology.closing(result, np.ones(20))
-        result = morphology.opening(result, np.ones(20))
-        labeled_result = measure.label(result)
-
-        clomuns = np.zeros(2 * np.max(labeled_result)).reshape(np.max(labeled_result), 2)
-
-        label = 0
-        for i in range(len(labeled_result)):
-            if labeled_result[i] != label:
-                if label == 0:
-                    clomuns[labeled_result[i] - 1, 0] = i
-                else:
-                    clomuns[label - 1, 1] = i
-            label = labeled_result[i]
-
-        rows_results.append(clomuns)
-
-    """ax[0].imshow(image)
-    ax[1].plot(range(len(rows_results[0])), rows_results[0])
-    ax[2].plot(range(len(rows_results[1])), rows_results[1])
-
-    fig.tight_layout()
-    plt.show()"""
-
-    return rows_results
 
 if __name__ == "__main__":
     first = 1
@@ -591,24 +516,8 @@ if __name__ == "__main__":
     photos = PhotosDict(sys.argv[1], int(sys.argv[2]), first)
 
     for image in photos.dict:
-        fig, axes = plt.subplots(1, 2, figsize=(14, 6))
-        ax = axes.ravel()
-
         contours = detect_paper(image)
         warped_image = warp_paper(image, contours)
         clean_paper = remove_paper_noise(warped_image)
         rows = detect_rows(clean_paper)
-<<<<<<< HEAD
-        columns = detect_columns(clean_paper, rows)
-
-        ax[0].imshow(clean_paper)
-        for n, row in enumerate(rows):
-            for column in columns[n]:
-                ax[0].plot(np.array([column[0], column[0], column[1], column[1], column[0]]), np.array([row[0], row[1], row[1], row[0], row[0]]), linewidth=2)
-        fig.tight_layout()
-        plt.show()
-
-
-=======
         detect_words(clean_paper, rows)
->>>>>>> word-detection
