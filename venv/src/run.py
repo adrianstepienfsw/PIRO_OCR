@@ -24,6 +24,7 @@ from torchvision import datasets, transforms
 from torch import nn
 from torch import optim
 import torch.nn.functional as F
+from scipy import ndimage as ndi
 
 
 class ModelNN(nn.Module):
@@ -623,13 +624,11 @@ if __name__ == "__main__":
                 height = int(digit_img.shape[0])
 
                 digit_img_cutted[int((maxDimension-height)/2):int((maxDimension-height)/2+height), int((maxDimension-width)/2):int((maxDimension-width)/2+width)] = digit_img
-                #digit_img_resized = resize(digit_img_cutted, (28, 28), anti_aliasing=True)
-                digit_img_resized = rescale(digit_img_cutted, 28/maxDimension)
+                digit_img_resized = resize(digit_img_cutted, (28, 28), anti_aliasing=True)
 
-                digit_img_resized[digit_img_resized!=0] = 1
-                digit_img_resized = morphology.erosion(digit_img_resized, morphology.rectangle(1,1))
                 digit_view = torch.Tensor(digit_img_resized).view(1, 784)
-                logps = cnn(digit_view)
+                with torch.no_grad():
+                    logps = cnn(digit_view)
                 ps = torch.exp(logps).detach()
                 probab = list(ps.numpy()[0])
                 print(probab.index(max(probab)))
