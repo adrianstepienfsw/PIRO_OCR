@@ -12,6 +12,32 @@ from matplotlib import cm
 from skimage.transform import hough_line, hough_line_peaks
 from scipy import ndimage as ndi
 from skimage.filters import try_all_threshold
+from skimage.transform import rescale, resize
+
+import numpy as np
+import torch
+import torchvision
+import matplotlib.pyplot as plt
+from time import time
+import os
+from torchvision import datasets, transforms
+from torch import nn
+from torch import optim
+import torch.nn.functional as F
+
+
+class ModelNN(nn.Module):
+    def __init__(self):
+        super(ModelNN, self).__init__()
+        self.lin1 = nn.Linear(784, 200)
+        self.lin2 = nn.Linear(200, 80)
+        self.lin3 = nn.Linear(80, 10)
+
+    def forward(self, x):
+        x = F.relu(self.lin1(x))
+        x = F.relu(self.lin2(x))
+        x = F.log_softmax(self.lin3(x), dim=1)
+        return x
 
 
 class PhotosDict:
@@ -515,7 +541,6 @@ def detect_words(paper, word_rows):
                 words.append(
                     (word_start, letter_regions[j + 1][3], min_row + int(word_row[0]), max_row + int(word_row[0])))
 
-        print(digits)
         divided_rows.append(RowDescription(i, words, digits))
 
         for word in words:
@@ -524,21 +549,99 @@ def detect_words(paper, word_rows):
                                       edgecolor='red', linewidth=1)
             ax[1].add_patch(rect)
 
-    # plt.show()
+    #plt.show()
 
     return divided_rows
 
 
 if __name__ == "__main__":
     first = 1
+
+    train = False
+
+    if train:
+        # Define a transform to normalize the data
+        transform = transforms.Compose([transforms.ToTensor(),
+                                        transforms.Normalize((0.5,), (0.5,)),
+                                        ])
+
+        # Download and load the training data
+        trainData = datasets.MNIST('./trainData/', download=True, train=True, transform=transform)
+        testData = datasets.MNIST('./trainData/', download=True, train=False, transform=transform)
+        trainLoader = torch.utils.data.DataLoader(trainData, batch_size=64, shuffle=True)
+        testLoader = torch.utils.data.DataLoader(testData, batch_size=64, shuffle=True)
+
+
+        cnn = ModelNN()
+        optimX = optim.SGD(cnn.parameters(), lr=0.003, momentum=0.9)
+        time0 = time()
+        epochsNumber = 15
+        looser = nn.NLLLoss()
+
+        for i in range(epochsNumber):
+            actual_loss = 0
+            for images, labels in trainLoader:
+
+                images = images.view(images.shape[0], -1)
+                optimX.zero_grad()
+                output = cnn(images)
+                loss = looser(output, labels)
+                loss.backward()
+                optimX.step()
+                actual_loss += loss.item()
+            else:
+                print("Epoch "+str(i)+" Loss "+str(actual_loss / len(trainLoader)))
+
+        torch.save(cnn.state_dict(), "weights.pt")
+        print("\n Training finished after "+ str(time() - time0)+" seconds")
+
+    cnn = ModelNN()
+    cnn.load_state_dict(torch.load("weights.pt"))
+    cnn.eval()
+
     if len(sys.argv) > 4:
         if sys.argv[3] != '':
             first = int(sys.argv[3])
     photos = PhotosDict(sys.argv[1], int(sys.argv[2]), first)
 
     for image in photos.dict:
+
+
         contours = detect_paper(image)
         warped_image = warp_paper(image, contours)
         clean_paper = remove_paper_noise(warped_image)
         rows = detect_rows(clean_paper)
         divided_rows = detect_words(clean_paper, rows)
+
+        for row in divided_rows:
+            digits = row.digits
+            for digit in digits:
+                digit_img = take_biggest_region(clean_paper[digit[2]-2:digit[3]+2, digit[0]-2:digit[1]+2])
+                maxDimension = max(digit_img.shape)
+                digit_img_cutted = np.zeros(maxDimension*maxDimension).reshape(maxDimension, maxDimension)
+                width = int(digit_img.shape[1])
+                height = int(digit_img.shape[0])
+
+                digit_img_cutted[int((maxDimension-height)/2):int((maxDimension-height)/2+height), int((maxDimension-width)/2):int((maxDimension-width)/2+width)] = digit_img
+                #digit_img_resized = resize(digit_img_cutted, (28, 28), anti_aliasing=True)
+                digit_img_resized = rescale(digit_img_cutted, 28/maxDimension)
+
+                digit_img_resized[digit_img_resized!=0] = 1
+                digit_img_resized = morphology.erosion(digit_img_resized, morphology.rectangle(1,1))
+                digit_view = torch.Tensor(digit_img_resized).view(1, 784)
+                logps = cnn(digit_view)
+                ps = torch.exp(logps).detach()
+                probab = list(ps.numpy()[0])
+                print(probab.index(max(probab)))
+
+                fig, axes = plt.subplots(1, 4, figsize=(12, 6))
+                ax = axes.ravel()
+                ax[0].imshow(clean_paper)
+                minc, maxc, minr, maxr = digit
+                rect = mpatches.Rectangle((minc, minr), maxc - minc, maxr - minr, fill=False,
+                                          edgecolor='red', linewidth=1)
+                ax[0].add_patch(rect)
+                ax[1].imshow(digit_img)
+                ax[2].imshow(digit_img_cutted)
+                ax[3].imshow(digit_img_resized)
+                plt.show()
