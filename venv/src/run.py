@@ -50,7 +50,12 @@ class PhotoDictPIRO:
         print_progress(0, count, prefix="Reading images:", suffix="Complete", bar_length=50)
 
         for i in range(0, count):
-            file_path = Path(input_path + str(i) + ".png")
+            # To be uncommented before running final tests
+            # file_path = Path(input_path + "/" + str(i) + ".png")
+
+            # To be commented/removed before running final tests
+            file_path = Path(input_path + "/img_" + str(i + 1) + ".jpg")
+
             image = io.imread(file_path)
             self.dict.append(image)
             print_progress(i + 1, count, prefix="Reading images:", suffix="Complete", bar_length=50)
@@ -561,7 +566,7 @@ def train_model():
     print("\n Training finished after " + str(time() - time0) + " seconds")
 
 
-def tag_detected_words(image, divided_rows, trans):
+def tag_detected_words(image, divided_rows, trans, output_path, image_number):
     new_img = np.zeros(image.shape, dtype=np.uint8)
 
     for single_row in divided_rows:
@@ -574,20 +579,24 @@ def tag_detected_words(image, divided_rows, trans):
 
     new_img = transform.warp(new_img, trans.inverse)
 
-    fig, axes = plt.subplots(1, 2, figsize=(12, 6))
-    ax = axes.ravel()
-    ax[0].imshow(image)
-    ax[1].imshow(new_img)
-    plt.show()
+    io.imsave(Path(output_path + "/" + str(image_number) + "-wyrazy.png"), new_img)
+
+    # fig, axes = plt.subplots(1, 2, figsize=(12, 6))
+    # ax = axes.ravel()
+    # ax[0].imshow(image)
+    # ax[1].imshow(new_img)
+    # plt.show()
 
 
 if __name__ == "__main__":
     first = 1
 
-    if len(sys.argv) > 4:
-        if sys.argv[3] != '':
-            first = int(sys.argv[3])
-    photos = PhotosDict(sys.argv[1], int(sys.argv[2]), first)
+    # if len(sys.argv) > 4:
+    #     if sys.argv[3] != '':
+    #         first = int(sys.argv[3])
+    photos = PhotoDictPIRO(sys.argv[1], int(sys.argv[2]))
+
+    Path(sys.argv[3]).mkdir(parents=True, exist_ok=True)
 
     i = 0
 
@@ -606,7 +615,9 @@ if __name__ == "__main__":
         clean_paper = remove_paper_noise(warped_image)
         rows = detect_rows(clean_paper)
         divided_rows = detect_words(clean_paper, rows)
-        tag_detected_words(image, divided_rows, trans)
+
+        # Change 0 to correct image number
+        tag_detected_words(image, divided_rows, trans, sys.argv[3], 0)
 
         for row in divided_rows:
             digits = row.digits
