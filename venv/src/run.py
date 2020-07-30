@@ -41,6 +41,21 @@ class ModelNN(nn.Module):
         return x
 
 
+class PhotoDictPIRO:
+    def __init__(self, input_path, count):
+        self.dict = []
+        self.load_photos(input_path, count)
+
+    def load_photos(self, input_path, count):
+        print_progress(0, count, prefix="Reading images:", suffix="Complete", bar_length=50)
+
+        for i in range(0, count):
+            file_path = Path(input_path + str(i) + ".png")
+            image = io.imread(file_path)
+            self.dict.append(image)
+            print_progress(i + 1, count, prefix="Reading images:", suffix="Complete", bar_length=50)
+
+
 class PhotosDict:
     def __init__(self, path, count, first):
         self.dict = []
@@ -278,56 +293,7 @@ def detect_paper(image):
     # plt.show()
 
     # Return necessary information for next steps
-    # return paper_contour, (fig, axes)
     return paper_contour
-
-    """edges1 = feature.canny(grayscale, sigma=1)
-    tested_angles = np.linspace(-np.pi / 2, np.pi / 2, 360)
-    h, theta, d = hough_line(edges1, theta=tested_angles)
-    lines = hough_line_peaks(h, theta, d)
-    print(lines)
-    crossPoints = crossing_points(grayscale, lines[1], lines[2])
-    # Generating figure 1
-    fig, axes = plt.subplots(1, 3, figsize=(15, 6))
-    ax = axes.ravel()
-    ax[0].imshow(image, cmap=cm.gray)
-    ax[0].set_title('Input image')
-    ax[0].set_axis_off()
-    ax[1].imshow(np.log(1 + h),
-                 extent=[np.rad2deg(theta[-1]), np.rad2deg(theta[0]), d[-1], d[0]],
-                 cmap=cm.gray, aspect=1 / 1.5)
-    ax[1].set_title('Hough transform')
-    ax[1].set_xlabel('Angles (degrees)')
-    ax[1].set_ylabel('Distance (pixels)')
-    ax[1].axis('image')
-    ax[2].imshow(image, cmap=cm.gray)
-    origin = np.array((0, image.shape[1]))
-    for _, angle, dist in zip(*hough_line_peaks(h, theta, d)):
-        y0, y1 = (dist - origin * np.cos(angle)) / np.sin(angle)
-        ax[2].plot(origin, (y0, y1), '-r')
-    ax[2].set_xlim(origin)
-    ax[2].set_ylim((image.shape[0], 0))
-    ax[2].set_axis_off()
-    ax[2].set_title('Detected lines')
-    plt.tight_layout()
-    plt.show()"""
-
-    """fig, (ax1, ax2, ax3) = plt.subplots(nrows=1, ncols=3, figsize=(15, 5),
-                                        sharex=True, sharey=True)
-    ax1.imshow(grayscale, cmap=plt.cm.gray)
-    ax1.axis('off')
-    ax1.set_title('noisy image', fontsize=20)
-    ax2.imshow(edges1, cmap=plt.cm.gray)
-    ax2.axis('off')
-    ax2.set_title(r'Canny filter, $\sigma=1$', fontsize=20)
-    ax3.imshow(edges2, cmap=plt.cm.gray)
-    ax3.axis('off')
-    ax3.set_title(r'Canny filter, $\sigma=3$', fontsize=20)
-    fig.tight_layout()
-    plt.show()"""
-    """plt.figure(figsize=(15, 10))
-    io.imshow(i)
-    plt.show()"""
 
 
 def calculate_distance(first_point, second_point):
@@ -401,7 +367,7 @@ def warp_paper(image, contours):
     # io.imshow(warped_image)
     # plt.show()
 
-    return warped_image
+    return warped_image, trans
 
 
 def remove_paper_noise(image):
@@ -480,13 +446,13 @@ def detect_rows(image):
 
 
 def detect_words(paper, word_rows):
-    fig, axes = plt.subplots(1, 2, figsize=(12, 6))
-    ax = axes.ravel()
+    # fig, axes = plt.subplots(1, 2, figsize=(12, 6))
+    # ax = axes.ravel()
 
     result = morphology.closing(paper, morphology.rectangle(5, 5))
 
-    ax[0].imshow(paper)
-    ax[1].imshow(paper)
+    # ax[0].imshow(paper)
+    # ax[1].imshow(paper)
 
     divided_rows = []
 
@@ -502,7 +468,7 @@ def detect_words(paper, word_rows):
                 minr, minc, maxr, maxc = region.bbox
                 rect = mpatches.Rectangle((minc, minr + int(word_row[0])), maxc - minc, maxr - minr, fill=False,
                                           edgecolor='blue', linewidth=1)
-                ax[1].add_patch(rect)
+                # ax[1].add_patch(rect)
 
         letter_regions = sorted(letter_regions, key=lambda x: x[1])
 
@@ -529,6 +495,7 @@ def detect_words(paper, word_rows):
                 max_row = letter_regions[j][2]
 
             if region_distance > 30:
+                # (start col, end col, start row, end row)
                 words.append((word_start, letter_regions[j][3] if letter_regions[j][3] > word_end else word_end,
                               min_row + int(word_row[0]), max_row + int(word_row[0])))
                 word_start = letter_regions[j + 1][1]
@@ -541,6 +508,9 @@ def detect_words(paper, word_rows):
             if j == len(letter_regions) - 2:
                 words.append(
                     (word_start, letter_regions[j + 1][3], min_row + int(word_row[0]), max_row + int(word_row[0])))
+                digits.append(
+                    (letter_regions[j + 1][1], letter_regions[j + 1][3], letter_regions[j + 1][0] + int(word_row[0]),
+                     letter_regions[j + 1][2] + int(word_row[0])))
 
         divided_rows.append(RowDescription(i, words, digits))
 
@@ -548,77 +518,102 @@ def detect_words(paper, word_rows):
             minc, maxc, minr, maxr = word
             rect = mpatches.Rectangle((minc, minr), maxc - minc, maxr - minr, fill=False,
                                       edgecolor='red', linewidth=1)
-            ax[1].add_patch(rect)
+            # ax[1].add_patch(rect)
 
-    #plt.show()
+    # plt.show()
 
     return divided_rows
+
+
+def train_model():
+    # Define a transform to normalize the data
+    transform_torch = transforms.Compose([transforms.ToTensor(),
+                                          transforms.Normalize((0.5,), (0.5,)),
+                                          ])
+
+    # Download and load the training data
+    trainData = datasets.MNIST('./trainData/', download=True, train=True, transform=transform_torch)
+    testData = datasets.MNIST('./trainData/', download=True, train=False, transform=transform_torch)
+    trainLoader = torch.utils.data.DataLoader(trainData, batch_size=64, shuffle=True)
+    testLoader = torch.utils.data.DataLoader(testData, batch_size=64, shuffle=True)
+
+    cnn = ModelNN()
+    optimX = optim.SGD(cnn.parameters(), lr=0.003, momentum=0.9)
+    time0 = time()
+    epochsNumber = 15
+    looser = nn.NLLLoss()
+
+    for i in range(epochsNumber):
+        actual_loss = 0
+        for images, labels in trainLoader:
+
+            images = images.view(images.shape[0], -1)
+            optimX.zero_grad()
+            output = cnn(images)
+            loss = looser(output, labels)
+            loss.backward()
+            optimX.step()
+            actual_loss += loss.item()
+        else:
+            print("Epoch " + str(i) + " Loss " + str(actual_loss / len(trainLoader)))
+
+    torch.save(cnn.state_dict(), "weights.pt")
+    print("\n Training finished after " + str(time() - time0) + " seconds")
+
+
+def tag_detected_words(image, divided_rows, trans):
+    new_img = np.zeros(image.shape, dtype=np.uint8)
+
+    for single_row in divided_rows:
+        for word in single_row.words:
+            start_point = (word[2], word[0])
+            end_point = (word[3], word[1])
+
+            rr, cc = draw.rectangle(start_point, end=end_point, shape=new_img.shape)
+            new_img[rr, cc] = single_row.row_number + 1
+
+    new_img = transform.warp(new_img, trans.inverse)
+
+    fig, axes = plt.subplots(1, 2, figsize=(12, 6))
+    ax = axes.ravel()
+    ax[0].imshow(image)
+    ax[1].imshow(new_img)
+    plt.show()
 
 
 if __name__ == "__main__":
     first = 1
 
+    if len(sys.argv) > 4:
+        if sys.argv[3] != '':
+            first = int(sys.argv[3])
+    photos = PhotosDict(sys.argv[1], int(sys.argv[2]), first)
+
+    i = 0
+
     train = False
 
     if train:
-        # Define a transform to normalize the data
-        transform = transforms.Compose([transforms.ToTensor(),
-                                        transforms.Normalize((0.5,), (0.5,)),
-                                        ])
-
-        # Download and load the training data
-        trainData = datasets.MNIST('./trainData/', download=True, train=True, transform=transform)
-        testData = datasets.MNIST('./trainData/', download=True, train=False, transform=transform)
-        trainLoader = torch.utils.data.DataLoader(trainData, batch_size=64, shuffle=True)
-        testLoader = torch.utils.data.DataLoader(testData, batch_size=64, shuffle=True)
-
-
-        cnn = ModelNN()
-        optimX = optim.SGD(cnn.parameters(), lr=0.003, momentum=0.9)
-        time0 = time()
-        epochsNumber = 15
-        looser = nn.NLLLoss()
-
-        for i in range(epochsNumber):
-            actual_loss = 0
-            for images, labels in trainLoader:
-
-                images = images.view(images.shape[0], -1)
-                optimX.zero_grad()
-                output = cnn(images)
-                loss = looser(output, labels)
-                loss.backward()
-                optimX.step()
-                actual_loss += loss.item()
-            else:
-                print("Epoch "+str(i)+" Loss "+str(actual_loss / len(trainLoader)))
-
-        torch.save(cnn.state_dict(), "weights.pt")
-        print("\n Training finished after "+ str(time() - time0)+" seconds")
+        train_model()
 
     cnn = ModelNN()
     cnn.load_state_dict(torch.load("weights.pt"))
     cnn.eval()
 
-    if len(sys.argv) > 4:
-        if sys.argv[3] != '':
-            first = int(sys.argv[3])
-    photos = PhotosDict(sys.argv[1], int(sys.argv[2]), first)
-    i=0
     for image in photos.dict:
-
-
         contours = detect_paper(image)
-        warped_image = warp_paper(image, contours)
+        warped_image, trans = warp_paper(image, contours)
         clean_paper = remove_paper_noise(warped_image)
         rows = detect_rows(clean_paper)
         divided_rows = detect_words(clean_paper, rows)
+        tag_detected_words(image, divided_rows, trans)
 
         for row in divided_rows:
             digits = row.digits
+
             for digit in digits:
-                i+=1
-                digit_img = take_biggest_region(clean_paper[digit[2]-2:digit[3]+2, digit[0]-2:digit[1]+2])
+                i += 1
+                digit_img = take_biggest_region(clean_paper[digit[2] - 2:digit[3] + 2, digit[0] - 2:digit[1] + 2])
                 rows_sum = np.sum(digit_img, axis=1)
                 column_sum = np.sum(digit_img, axis=0)
                 max_row = -1
@@ -628,26 +623,27 @@ if __name__ == "__main__":
                 for i in range(digit_img.shape[0]):
                     if (min_row == -1) and (rows_sum[i] != 0):
                         min_row = i
-                    if (rows_sum[i] != 0):
+                    if rows_sum[i] != 0:
                         max_row = i
                 for i in range(digit_img.shape[1]):
                     if (min_column == -1) and (column_sum[i] != 0):
                         min_column = i
-                    if (column_sum[i] != 0):
+                    if column_sum[i] != 0:
                         max_column = i
                 digit_img = digit_img[min_row:max_row, min_column:max_column]
 
                 maxDimension = max(digit_img.shape)
-                digit_img_cutted = np.zeros(maxDimension*maxDimension).reshape(maxDimension, maxDimension)
+                digit_img_cutted = np.zeros(maxDimension * maxDimension).reshape(maxDimension, maxDimension)
                 width = int(digit_img.shape[1])
                 height = int(digit_img.shape[0])
-                digit_img_cutted[int((maxDimension-height)/2):int((maxDimension-height)/2+height), int((maxDimension-width)/2):int((maxDimension-width)/2+width)] = digit_img
+                digit_img_cutted[int((maxDimension - height) / 2):int((maxDimension - height) / 2 + height),
+                int((maxDimension - width) / 2):int((maxDimension - width) / 2 + width)] = digit_img
                 digit_img_resized2 = resize(digit_img_cutted, (20, 20), anti_aliasing=True)
-                digit_img_resized2 = morphology.dilation(digit_img_resized2, morphology.rectangle(1,1))
-                digit_img_resized = np.zeros(784).reshape(28,28)
-                digit_img_resized[4:24,4:24] = digit_img_resized2
+                digit_img_resized2 = morphology.dilation(digit_img_resized2, morphology.rectangle(1, 1))
+                digit_img_resized = np.zeros(784).reshape(28, 28)
+                digit_img_resized[4:24, 4:24] = digit_img_resized2
 
-                digit_img_resized = digit_img_resized/np.max(digit_img_resized)*2 - 1
+                digit_img_resized = digit_img_resized / np.max(digit_img_resized) * 2 - 1
                 digit_img_resized = np.expand_dims(digit_img_resized, axis=0)
 
                 digit_view = torch.Tensor(digit_img_resized).view(1, 784)
@@ -657,15 +653,15 @@ if __name__ == "__main__":
                 probab = list(ps.numpy()[0])
                 print(probab.index(max(probab)))
 
-                fig, axes = plt.subplots(1, 4, figsize=(12, 6))
-                ax = axes.ravel()
-                ax[0].imshow(clean_paper)
-                minc, maxc, minr, maxr = digit
-                rect = mpatches.Rectangle((minc, minr), maxc - minc, maxr - minr, fill=False,
-                                          edgecolor='red', linewidth=1)
-                ax[0].add_patch(rect)
-                ax[1].imshow(digit_img)
-                ax[2].imshow(digit_img_cutted)
-                ax[3].imshow(digit_img_resized.squeeze())
-                """io.imsave("./"+str(i)+".png", digit_img_resized)"""
-                plt.show()
+                # fig, axes = plt.subplots(1, 4, figsize=(12, 6))
+                # ax = axes.ravel()
+                # ax[0].imshow(clean_paper)
+                # minc, maxc, minr, maxr = digit
+                # rect = mpatches.Rectangle((minc, minr), maxc - minc, maxr - minr, fill=False,
+                #                           edgecolor='red', linewidth=1)
+                # ax[0].add_patch(rect)
+                # ax[1].imshow(digit_img)
+                # ax[2].imshow(digit_img_cutted)
+                # ax[3].imshow(digit_img_resized.squeeze())
+                # """io.imsave("./"+str(i)+".png", digit_img_resized)"""
+                # plt.show()
