@@ -604,7 +604,7 @@ if __name__ == "__main__":
         if sys.argv[3] != '':
             first = int(sys.argv[3])
     photos = PhotosDict(sys.argv[1], int(sys.argv[2]), first)
-
+    i=0
     for image in photos.dict:
 
 
@@ -617,14 +617,38 @@ if __name__ == "__main__":
         for row in divided_rows:
             digits = row.digits
             for digit in digits:
+                i+=1
                 digit_img = take_biggest_region(clean_paper[digit[2]-2:digit[3]+2, digit[0]-2:digit[1]+2])
+                rows_sum = np.sum(digit_img, axis=1)
+                column_sum = np.sum(digit_img, axis=0)
+                max_row = -1
+                min_row = -1
+                max_column = -1
+                min_column = -1
+                for i in range(digit_img.shape[0]):
+                    if (min_row == -1) and (rows_sum[i] != 0):
+                        min_row = i
+                    if (rows_sum[i] != 0):
+                        max_row = i
+                for i in range(digit_img.shape[1]):
+                    if (min_column == -1) and (column_sum[i] != 0):
+                        min_column = i
+                    if (column_sum[i] != 0):
+                        max_column = i
+                digit_img = digit_img[min_row:max_row, min_column:max_column]
+
                 maxDimension = max(digit_img.shape)
                 digit_img_cutted = np.zeros(maxDimension*maxDimension).reshape(maxDimension, maxDimension)
                 width = int(digit_img.shape[1])
                 height = int(digit_img.shape[0])
-
                 digit_img_cutted[int((maxDimension-height)/2):int((maxDimension-height)/2+height), int((maxDimension-width)/2):int((maxDimension-width)/2+width)] = digit_img
-                digit_img_resized = resize(digit_img_cutted, (28, 28), anti_aliasing=True)
+                digit_img_resized2 = resize(digit_img_cutted, (20, 20), anti_aliasing=True)
+                digit_img_resized2 = morphology.dilation(digit_img_resized2, morphology.rectangle(1,1))
+                digit_img_resized = np.zeros(784).reshape(28,28)
+                digit_img_resized[4:24,4:24] = digit_img_resized2
+
+                digit_img_resized = digit_img_resized/np.max(digit_img_resized)*2 - 1
+                digit_img_resized = np.expand_dims(digit_img_resized, axis=0)
 
                 digit_view = torch.Tensor(digit_img_resized).view(1, 784)
                 with torch.no_grad():
@@ -642,5 +666,6 @@ if __name__ == "__main__":
                 ax[0].add_patch(rect)
                 ax[1].imshow(digit_img)
                 ax[2].imshow(digit_img_cutted)
-                ax[3].imshow(digit_img_resized)
+                ax[3].imshow(digit_img_resized.squeeze())
+                """io.imsave("./"+str(i)+".png", digit_img_resized)"""
                 plt.show()
