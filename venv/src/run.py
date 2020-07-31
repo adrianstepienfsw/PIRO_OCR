@@ -54,7 +54,7 @@ class PhotoDictPIRO:
             # file_path = Path(input_path + "/" + str(i) + ".png")
 
             # To be commented/removed before running final tests
-            file_path = Path(input_path + "/img_" + str(i + 26) + ".jpg")
+            file_path = Path(input_path + "/img_" + str(i + 1) + ".jpg")
 
             image = io.imread(file_path)
             self.dict.append(image)
