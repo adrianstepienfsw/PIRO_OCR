@@ -532,9 +532,7 @@ def detect_words(paper, word_rows):
 
 def train_model():
     # Define a transform to normalize the data
-    transform_torch = transforms.Compose([transforms.ToTensor(),
-                                          transforms.Normalize((0.5,), (0.5,)),
-                                          ])
+    transform_torch = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,)), ])
 
     # Download and load the training data
     trainData = datasets.MNIST('./trainData/', download=True, train=True, transform=transform_torch)
@@ -609,6 +607,8 @@ if __name__ == "__main__":
     cnn.load_state_dict(torch.load("weights.pt"))
     cnn.eval()
 
+    image_sequential_number = 0
+
     for image in photos.dict:
         contours = detect_paper(image)
         warped_image, trans = warp_paper(image, contours)
@@ -617,7 +617,7 @@ if __name__ == "__main__":
         divided_rows = detect_words(clean_paper, rows)
 
         # Change 0 to correct image number
-        tag_detected_words(image, divided_rows, trans, sys.argv[3], 0)
+        tag_detected_words(image, divided_rows, trans, sys.argv[3], image_sequential_number)
 
         file_rows_list = []
         for row in divided_rows:
@@ -664,7 +664,7 @@ if __name__ == "__main__":
                     logps = cnn(digit_view)
                 ps = torch.exp(logps).detach()
                 probab = list(ps.numpy()[0])
-                print(probab.index(max(probab)))
+                # print(probab.index(max(probab)))
                 row_digits_list.append(probab.index(max(probab)))
 
                 # fig, axes = plt.subplots(1, 4, figsize=(12, 6))
@@ -685,5 +685,7 @@ if __name__ == "__main__":
         one_file_string = "\n".join(file_rows_list)
 
         # Change 0 to correct image number
-        with open(Path(sys.argv[3] + "/" + str(0) + "-indeksy.txt"), "w") as text_file:
+        with open(Path(sys.argv[3] + "/" + str(image_sequential_number) + "-indeksy.txt"), "w") as text_file:
             print(one_file_string, file=text_file)
+
+        image_sequential_number += 1
