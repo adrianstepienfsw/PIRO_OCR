@@ -619,9 +619,11 @@ if __name__ == "__main__":
         # Change 0 to correct image number
         tag_detected_words(image, divided_rows, trans, sys.argv[3], 0)
 
+        file_rows_list = []
         for row in divided_rows:
             digits = row.digits
 
+            row_digits_list = []
             for digit in digits:
                 i += 1
                 digit_img = take_biggest_region(clean_paper[digit[2] - 2:digit[3] + 2, digit[0] - 2:digit[1] + 2])
@@ -663,6 +665,7 @@ if __name__ == "__main__":
                 ps = torch.exp(logps).detach()
                 probab = list(ps.numpy()[0])
                 print(probab.index(max(probab)))
+                row_digits_list.append(probab.index(max(probab)))
 
                 # fig, axes = plt.subplots(1, 4, figsize=(12, 6))
                 # ax = axes.ravel()
@@ -676,3 +679,11 @@ if __name__ == "__main__":
                 # ax[3].imshow(digit_img_resized.squeeze())
                 # """io.imsave("./"+str(i)+".png", digit_img_resized)"""
                 # plt.show()
+
+            one_row_string = "".join(str(el) for el in row_digits_list)
+            file_rows_list.append(one_row_string)
+        one_file_string = "\n".join(file_rows_list)
+
+        # Change 0 to correct image number
+        with open(Path(sys.argv[3] + "/" + str(0) + "-indeksy.txt"), "w") as text_file:
+            print(one_file_string, file=text_file)
