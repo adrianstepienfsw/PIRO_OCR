@@ -166,6 +166,7 @@ def crossing_points(image, angles, distances):
 
 def take_biggest_region(image):
     image = measure.label(image, connectivity=1)
+
     region_props = measure.regionprops(image)
 
     max_area = 0
@@ -285,7 +286,7 @@ def detect_paper(image):
     grayscale = color.rgb2gray(image)
     # ax[0].imshow(grayscale)
 
-    block_size = 1555
+    block_size = 255
     local_thresh = filters.threshold_local(grayscale, block_size)
     binary_local = grayscale > local_thresh
     # ax[1].imshow(binary_local)
@@ -642,7 +643,7 @@ if __name__ == "__main__":
             row_digits_list = []
             for digit in digits:
                 i += 1
-                digit_img = take_biggest_region(clean_paper[digit[2] - 2:digit[3] + 2, digit[0] - 2:digit[1] + 2])
+                digit_img = take_biggest_region(clean_paper[digit[2]:digit[3], digit[0]:digit[1]])
                 rows_sum = np.sum(digit_img, axis=1)
                 column_sum = np.sum(digit_img, axis=0)
                 max_row = -1
