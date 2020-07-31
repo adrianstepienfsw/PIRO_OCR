@@ -54,7 +54,7 @@ class PhotoDictPIRO:
             # file_path = Path(input_path + "/" + str(i) + ".png")
 
             # To be commented/removed before running final tests
-            file_path = Path(input_path + "/img_" + str(i + 1) + ".jpg")
+            file_path = Path(input_path + "/img_" + str(i + 11) + ".jpg")
 
             image = io.imread(file_path)
             self.dict.append(image)
@@ -229,8 +229,13 @@ def take_rectangle_contour(contour, image):
     for i in range(4):
         if new_contour[i, 0] == -1:
             if (new_contour[(i + 1) % 4, 0] != -1) and (new_contour[(i - 1) % 4, 0] != -1):
-                point11 = contour[int(new_contour[(i - 1) % 4, 0])]
-                point12 = contour[int(new_contour[(i - 1) % 4, 0] + 1)]
+                if int(new_contour[(i - 1) % 4, 0]) == len(contour)-1:
+                    point11 = contour[int(new_contour[(i - 1) % 4, 0])]
+                    point12 = contour[int(new_contour[(i - 1) % 4, 0] + 2)]
+                else:
+                    point11 = contour[int(new_contour[(i - 1) % 4, 0])]
+                    point12 = contour[int(new_contour[(i - 1) % 4, 0] + 1)]
+
                 a1 = (point11[1] - point12[1]) / (point11[0] - point12[0])
                 b1 = point11[1] - a1 * point11[0]
 
@@ -240,6 +245,7 @@ def take_rectangle_contour(contour, image):
                 else:
                     point21 = contour[int(new_contour[(i + 1) % 4, 0] - 1)]
                     point22 = contour[int(new_contour[(i + 1) % 4, 0])]
+
                 a2 = (point21[1] - point22[1]) / (point21[0] - point22[0])
                 b2 = point21[1] - a2 * point21[0]
 
