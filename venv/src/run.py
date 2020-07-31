@@ -234,8 +234,12 @@ def take_rectangle_contour(contour, image):
                 a1 = (point11[1] - point12[1]) / (point11[0] - point12[0])
                 b1 = point11[1] - a1 * point11[0]
 
-                point21 = contour[int(new_contour[(i + 1) % 4, 0] - 1)]
-                point22 = contour[int(new_contour[(i + 1) % 4, 0])]
+                if int(new_contour[(i + 1) % 4, 0]) == 0:
+                    point21 = contour[int(new_contour[(i + 1) % 4, 0] - 2)]
+                    point22 = contour[int(new_contour[(i + 1) % 4, 0])]
+                else:
+                    point21 = contour[int(new_contour[(i + 1) % 4, 0] - 1)]
+                    point22 = contour[int(new_contour[(i + 1) % 4, 0])]
                 a2 = (point21[1] - point22[1]) / (point21[0] - point22[0])
                 b2 = point21[1] - a2 * point21[0]
 
@@ -297,7 +301,7 @@ def detect_paper(image):
     # plt.tight_layout()
     # plt.show()
 
-    # Return necessary information for next steps
+    print("Detecting paper DONE")
     return paper_contour
 
 
@@ -372,14 +376,13 @@ def warp_paper(image, contours):
     # io.imshow(warped_image)
     # plt.show()
 
+    print("Warping paper DONE")
     return warped_image, trans
 
 
 def remove_paper_noise(image):
-    # (fig, axes) = plot
+    # fig, axes = plt.subplots(1, 5, figsize=(14, 6))
     # ax = axes.ravel()
-    """fig, axes = plt.subplots(1, 5, figsize=(14, 6))
-    ax = axes.ravel()"""
 
     grayscale = color.rgb2gray(image)
     grayscale = 1 - grayscale
@@ -394,24 +397,22 @@ def remove_paper_noise(image):
     threshold = filters.threshold_yen(grayscale_without_lines)
     binary_without_lines = grayscale_without_lines > threshold
 
-    """fig, ax = try_all_threshold(grayscale_without_lines, figsize=(10, 8), verbose=False)
-    plt.show()"""
+    # fig, ax = try_all_threshold(grayscale_without_lines, figsize=(10, 8), verbose=False)
+    # plt.show()
 
-    """ax[0].imshow(grayscale)
-    ax[1].imshow(vertical_lines)
-    ax[2].imshow(horizontal_lines)
-    ax[3].imshow(grayscale_without_lines)
-    ax[4].imshow(binary_without_lines)
-    fig.tight_layout()
-    plt.show()"""
+    # ax[0].imshow(grayscale)
+    # ax[1].imshow(vertical_lines)
+    # ax[2].imshow(horizontal_lines)
+    # ax[3].imshow(grayscale_without_lines)
+    # ax[4].imshow(binary_without_lines)
+    # fig.tight_layout()
+    # plt.show()
 
+    print("Removing noise DONE")
     return binary_without_lines
 
 
 def detect_rows(image):
-    # fig, axes = plt.subplots(1, 3, figsize=(14, 6))
-    # ax = axes.ravel()
-
     row_sum = np.sum(image, axis=1)
     result = row_sum > np.mean(row_sum)
 
@@ -434,9 +435,18 @@ def detect_rows(image):
         row[0] -= 15
         row[1] += 15
 
-    # for row in rows:
-    # ax[0].plot(np.array([10, 10, 1400, 1400, 10]), np.array([row[0], row[1], row[1], row[0], row[0]]), linewidth=2)
+        if row[0] < 0:
+            row[0] = 0
+        if row[1] > image.shape[0]:
+            row[1] = image.shape[0] - 1
 
+    # fig, axes = plt.subplots(1, 3, figsize=(14, 6))
+    # ax = axes.ravel()
+    #
+    # for row in rows:
+    #     ax[0].plot(np.array([10, 10, 1400, 1400, 10]), np.array([row[0], row[1], row[1], row[0], row[0]]), linewidth=2)
+    #     print(row)
+    #
     # ax[0].imshow(image)
     # ax[1].plot(range(len(row_sum)), row_sum)
     # ax[2].plot(range(len(result)), labeled_result)
@@ -444,9 +454,7 @@ def detect_rows(image):
     # fig.tight_layout()
     # plt.show()
 
-    # io.imshow(image)
-    # plt.show()
-
+    print("Detecting rows DONE")
     return rows
 
 
@@ -527,6 +535,7 @@ def detect_words(paper, word_rows):
 
     # plt.show()
 
+    print("Detecting words DONE")
     return divided_rows
 
 
@@ -573,7 +582,8 @@ def tag_detected_words(image, divided_rows, trans, output_path, image_number):
             end_point = (word[3], word[1])
 
             rr, cc = draw.rectangle(start_point, end=end_point, shape=new_img.shape)
-            new_img[rr, cc] = single_row.row_number + 1
+            # new_img[rr, cc] = single_row.row_number + 1
+            new_img[rr, cc] = 255
 
     new_img = transform.warp(new_img, trans.inverse)
 
