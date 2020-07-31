@@ -54,7 +54,7 @@ class PhotoDictPIRO:
             # file_path = Path(input_path + "/" + str(i) + ".png")
 
             # To be commented/removed before running final tests
-            file_path = Path(input_path + "/img_" + str(i + 1) + ".jpg")
+            file_path = Path(input_path + "/img_" + str(i + 26) + ".jpg")
 
             image = io.imread(file_path)
             self.dict.append(image)
@@ -132,11 +132,11 @@ def angles_from_contours(contour):
     return ret
 
 
-def make_margin(image, margin):
+def make_margin(image, margin, x=0):
     for i in range(image.shape[1]):
         for ii in range(image.shape[0]):
             if (i < margin) or (ii < margin) or (i > image.shape[1] - margin - 1) or (ii > image.shape[0] - margin - 1):
-                image[ii, i] = 0
+                image[ii, i] = x
     return image
 
 
@@ -237,7 +237,10 @@ def take_rectangle_contour(contour, image):
                     point11 = contour[int(new_contour[(i - 1) % 4, 0])]
                     point12 = contour[int(new_contour[(i - 1) % 4, 0] + 1)]
 
-                a1 = (point11[1] - point12[1]) / (point11[0] - point12[0])
+                if (point11[0] - point12[0]) == 0:
+                    a1 = (point11[1] - point12[1])*100000000
+                else:
+                    a1 = (point11[1] - point12[1]) / (point11[0] - point12[0])
                 b1 = point11[1] - a1 * point11[0]
 
                 if int(new_contour[(i + 1) % 4, 0]) == 0:
@@ -247,7 +250,10 @@ def take_rectangle_contour(contour, image):
                     point21 = contour[int(new_contour[(i + 1) % 4, 0] - 1)]
                     point22 = contour[int(new_contour[(i + 1) % 4, 0])]
 
-                a2 = (point21[1] - point22[1]) / (point21[0] - point22[0])
+                if (point21[0] - point22[0])==0:
+                    a2 = (point21[1] - point22[1]) / (point21[0] - point22[0])
+                else:
+                    a2 = (point21[1] - point22[1]) * 100000000
                 b2 = point21[1] - a2 * point21[0]
 
                 new_contour[i, 0] = (b2 - b1) / (a1 - a2)
@@ -280,16 +286,21 @@ def take_rectangle_contour(contour, image):
 
 def detect_paper(image):
     # Generating figure 1
-    # fig, axes = plt.subplots(1, 3, figsize=(14, 6))
-    # ax = axes.ravel()
+    fig, axes = plt.subplots(1, 3, figsize=(14, 6))
+    ax = axes.ravel()
 
     grayscale = color.rgb2gray(image)
-    # ax[0].imshow(grayscale)
+    ax[0].imshow(grayscale)
 
+    #grayscale = make_margin(grayscale, 6, np.average(grayscale))
     block_size = 255
+
+    otsu_thresh = filters.threshold_otsu(grayscale)
     local_thresh = filters.threshold_local(grayscale, block_size)
+    local_thresh = (local_thresh*3+otsu_thresh)/4
     binary_local = grayscale > local_thresh
-    # ax[1].imshow(binary_local)
+    #binary_local = make_margin(binary_local, 6)
+    ax[1].imshow(binary_local)
 
     binary_local = morphology.opening(binary_local, morphology.rectangle(5, 5))
     binary_local = morphology.closing(binary_local, morphology.rectangle(30, 30))
@@ -301,12 +312,12 @@ def detect_paper(image):
     contours = measure.find_contours(binary_local, 0.5)
     contour_polygon = measure.approximate_polygon(contours[0], 50)
     paper_contour = take_rectangle_contour(contour_polygon, binary_local)
-    # ax[2].imshow(binary_local)
-    # for n, contour in enumerate(paper_contour):
-    #     ax[2].plot(paper_contour[:, 1], paper_contour[:, 0], linewidth=2)
+    ax[2].imshow(binary_local)
+    for n, contour in enumerate(paper_contour):
+        ax[2].plot(paper_contour[:, 1], paper_contour[:, 0], linewidth=2)
 
-    # plt.tight_layout()
-    # plt.show()
+    plt.tight_layout()
+    plt.show()
 
     print("Detecting paper DONE")
     return paper_contour
@@ -494,10 +505,11 @@ def detect_words(paper, word_rows):
 
         words = []
 
-        min_row = letter_regions[0][0]
-        max_row = letter_regions[0][2]
-        word_start = letter_regions[0][1]
-        word_end = letter_regions[0][3]
+        if len(letter_regions)>0:
+            min_row = letter_regions[0][0]
+            max_row = letter_regions[0][2]
+            word_start = letter_regions[0][1]
+            word_end = letter_regions[0][3]
 
         digits = []
 
