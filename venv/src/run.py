@@ -286,11 +286,11 @@ def take_rectangle_contour(contour, image):
 
 def detect_paper(image):
     # Generating figure 1
-    fig, axes = plt.subplots(1, 3, figsize=(14, 6))
-    ax = axes.ravel()
+    #fig, axes = plt.subplots(1, 3, figsize=(14, 6))
+    #ax = axes.ravel()
 
     grayscale = color.rgb2gray(image)
-    ax[0].imshow(grayscale)
+    #ax[0].imshow(grayscale)
 
     #grayscale = make_margin(grayscale, 6, np.average(grayscale))
     block_size = 255
@@ -300,7 +300,7 @@ def detect_paper(image):
     local_thresh = (local_thresh*3+otsu_thresh)/4
     binary_local = grayscale > local_thresh
     #binary_local = make_margin(binary_local, 6)
-    ax[1].imshow(binary_local)
+    #ax[1].imshow(binary_local)
 
     binary_local = morphology.opening(binary_local, morphology.rectangle(5, 5))
     binary_local = morphology.closing(binary_local, morphology.rectangle(30, 30))
@@ -312,12 +312,12 @@ def detect_paper(image):
     contours = measure.find_contours(binary_local, 0.5)
     contour_polygon = measure.approximate_polygon(contours[0], 50)
     paper_contour = take_rectangle_contour(contour_polygon, binary_local)
-    ax[2].imshow(binary_local)
-    for n, contour in enumerate(paper_contour):
-        ax[2].plot(paper_contour[:, 1], paper_contour[:, 0], linewidth=2)
+    #ax[2].imshow(binary_local)
+    #for n, contour in enumerate(paper_contour):
+    #    ax[2].plot(paper_contour[:, 1], paper_contour[:, 0], linewidth=2)
 
-    plt.tight_layout()
-    plt.show()
+    #plt.tight_layout()
+    #plt.show()
 
     print("Detecting paper DONE")
     return paper_contour
